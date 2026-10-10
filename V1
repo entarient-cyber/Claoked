@@ -1,10 +1,9 @@
 --!nonstrict
 --=====================================================================
---  CLOAKED PLAGUE  •  Complete Interface
+--  CLOAKED PLAGUE  •  Complete Interface  (GREEN EDITION)
 --  Tabs: Main  •  Grief  •  Utilities  •  Settings
 --  Brand: rbxthumb Asset 6368110022
 --  Press K to toggle   •   Drag topbar   •   Minimize to pill
---  Transparency increased for glassier look
 --=====================================================================
 
 local BRAND_ICON_ID = "rbxthumb://type=Asset&id=6368110022&w=150&h=150"
@@ -58,30 +57,30 @@ end
 --=====================================================================
 
 local LIGHT = {
-	Window     = Color3.fromRGB(250, 250, 253),
-	WindowB    = Color3.fromRGB(238, 240, 248),
-	Sidebar    = Color3.fromRGB(248, 249, 252),
+	Window     = Color3.fromRGB(248, 252, 249),
+	WindowB    = Color3.fromRGB(234, 244, 237),
+	Sidebar    = Color3.fromRGB(244, 250, 246),
 	Surface    = Color3.fromRGB(255, 255, 255),
-	SurfaceHi  = Color3.fromRGB(240, 242, 250),
-	Content    = Color3.fromRGB(252, 252, 255),
-	Text       = Color3.fromRGB(28, 30, 42),
-	TextDim    = Color3.fromRGB(98, 105, 128),
-	TextMute   = Color3.fromRGB(150, 156, 178),
-	Stroke     = Color3.fromRGB(180, 186, 210),
-	Shadow     = Color3.fromRGB(60, 60, 90),
+	SurfaceHi  = Color3.fromRGB(232, 244, 236),
+	Content    = Color3.fromRGB(250, 253, 251),
+	Text       = Color3.fromRGB(24, 38, 28),
+	TextDim    = Color3.fromRGB(88, 118, 98),
+	TextMute   = Color3.fromRGB(140, 168, 150),
+	Stroke     = Color3.fromRGB(176, 208, 186),
+	Shadow     = Color3.fromRGB(40, 80, 55),
 }
 
 local DARK = {
-	Window     = Color3.fromRGB(28, 30, 40),
-	WindowB    = Color3.fromRGB(22, 24, 32),
-	Sidebar    = Color3.fromRGB(24, 26, 34),
-	Surface    = Color3.fromRGB(36, 39, 50),
-	SurfaceHi  = Color3.fromRGB(46, 50, 64),
-	Content    = Color3.fromRGB(30, 33, 44),
-	Text       = Color3.fromRGB(238, 241, 248),
-	TextDim    = Color3.fromRGB(155, 162, 182),
-	TextMute   = Color3.fromRGB(100, 108, 130),
-	Stroke     = Color3.fromRGB(66, 72, 92),
+	Window     = Color3.fromRGB(22, 32, 26),
+	WindowB    = Color3.fromRGB(16, 24, 19),
+	Sidebar    = Color3.fromRGB(18, 28, 22),
+	Surface    = Color3.fromRGB(30, 44, 34),
+	SurfaceHi  = Color3.fromRGB(40, 58, 45),
+	Content    = Color3.fromRGB(24, 36, 28),
+	Text       = Color3.fromRGB(232, 248, 236),
+	TextDim    = Color3.fromRGB(148, 180, 158),
+	TextMute   = Color3.fromRGB(96, 128, 108),
+	Stroke     = Color3.fromRGB(58, 88, 68),
 	Shadow     = Color3.fromRGB(0, 0, 0),
 }
 
@@ -90,15 +89,16 @@ for k, v in pairs(LIGHT) do
 	THEME[k] = v
 end
 
-local Accent  = Color3.fromRGB(110, 90, 240)
-local AccentB = Color3.fromRGB(70, 180, 240)
+--  GREEN ACCENTS
+local Accent  = Color3.fromRGB(46, 204, 113)
+local AccentB = Color3.fromRGB(64, 224, 168)
 local Danger  = Color3.fromRGB(230, 90, 110)
-local Success = Color3.fromRGB(62, 216, 176)
+local Success = Color3.fromRGB(76, 217, 122)
 local Warn    = Color3.fromRGB(255, 194, 102)
 local White   = Color3.fromRGB(255, 255, 255)
 
 --=====================================================================
---  TRANSPARENCY  (bump these for more/less see-through)
+--  TRANSPARENCY
 --=====================================================================
 
 local ALPHA = {
@@ -121,8 +121,8 @@ local ALPHA = {
 
 local TABS = {
 	{ id = "main",      label = "Main",      icon = "grid" },
-	{ id = "grief",     label = "Grief",     icon = "layers" },
-	{ id = "utilities", label = "Utilities", icon = "chart" },
+	{ id = "grief",     label = "Grief",     icon = "pickaxe" },
+	{ id = "utilities", label = "Utilities", icon = "wrench" },
 	{ id = "settings",  label = "Settings",  icon = "gear" },
 }
 
@@ -306,7 +306,7 @@ local function buildBrandMark(size, parent)
 end
 
 --=====================================================================
---  CONTROL BUTTONS  (minimize / close)
+--  CONTROL BUTTONS
 --=====================================================================
 
 local function makeControlButton(kind, parent, onClick)
@@ -493,34 +493,85 @@ local function makeNavIcon(kind, color, parent)
 			end
 		end
 
-	elseif kind == "layers" then
-		for i = 0, 2 do
-			local bar = new("Frame", {
-				Position = UDim2.new(0, 0, 0, i * 7 + 1),
-				Size = UDim2.new(1, 0, 0, 4),
-				BackgroundColor3 = color,
-				BorderSizePixel = 0,
-				Parent = holder,
-			})
-			corner(bar, 2)
-			table.insert(parts, bar)
-		end
+	elseif kind == "pickaxe" then
+		local handle = new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0, 7.5, 0, 12.5),
+			Size = UDim2.new(0, 2.2, 0, 13),
+			BackgroundColor3 = color,
+			BorderSizePixel = 0,
+			Rotation = 45,
+			Parent = holder,
+		})
+		corner(handle, 1)
+		table.insert(parts, handle)
 
-	elseif kind == "chart" then
-		local heights = { 6, 11, 15, 9 }
+		local head = new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0, 11, 0, 6),
+			Size = UDim2.new(0, 13, 0, 2.5),
+			BackgroundColor3 = color,
+			BorderSizePixel = 0,
+			Parent = holder,
+		})
+		corner(head, 1)
+		table.insert(parts, head)
 
-		for i = 1, 4 do
-			local h = heights[i]
-			local bar = new("Frame", {
-				Position = UDim2.new(0, 2 + (i - 1) * 5, 1, -h),
-				Size = UDim2.new(0, 3, 0, h),
-				BackgroundColor3 = color,
-				BorderSizePixel = 0,
-				Parent = holder,
-			})
-			corner(bar, 1)
-			table.insert(parts, bar)
-		end
+		local lt = new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0, 4, 0, 9),
+			Size = UDim2.new(0, 2, 0, 5),
+			BackgroundColor3 = color,
+			BorderSizePixel = 0,
+			Rotation = 30,
+			Parent = holder,
+		})
+		corner(lt, 1)
+		table.insert(parts, lt)
+
+		local rt = new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0, 18, 0, 9),
+			Size = UDim2.new(0, 2, 0, 5),
+			BackgroundColor3 = color,
+			BorderSizePixel = 0,
+			Rotation = -30,
+			Parent = holder,
+		})
+		corner(rt, 1)
+		table.insert(parts, rt)
+
+	elseif kind == "wrench" then
+		local handle = new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0, 13, 0, 13),
+			Size = UDim2.new(0, 2.4, 0, 11),
+			BackgroundColor3 = color,
+			BorderSizePixel = 0,
+			Rotation = -45,
+			Parent = holder,
+		})
+		corner(handle, 1)
+		table.insert(parts, handle)
+
+		local ring = new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0, 6, 0, 6),
+			Size = UDim2.new(0, 9, 0, 9),
+			BackgroundTransparency = 1,
+			Parent = holder,
+		})
+		local rc = Instance.new("UICorner")
+		rc.CornerRadius = UDim.new(1, 0)
+		rc.Parent = ring
+
+		local ringStroke = Instance.new("UIStroke")
+		ringStroke.Color = color
+		ringStroke.Thickness = 2.2
+		ringStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		ringStroke.Parent = ring
+
+		table.insert(parts, ringStroke)
 
 	elseif kind == "gear" then
 		for i = 0, 5 do
@@ -1465,7 +1516,7 @@ do
 	})
 
 	local questions = {
-		{ q = "What is the accent color of Cloaked Plague?", opts = {"Purple", "Green", "Red", "Blue"}, correct = 1 },
+		{ q = "What is the accent color of Cloaked Plague?", opts = {"Green", "Purple", "Red", "Blue"}, correct = 1 },
 		{ q = "Which key toggles the interface?",             opts = {"K", "J", "L", "M"}, correct = 1 },
 		{ q = "How do you minimize the window?",              opts = {"Click the dash", "Press ESC", "Close it", "Right-click"}, correct = 1 },
 		{ q = "Which tab has the quiz?",                      opts = {"Grief", "Main", "Settings", "Utilities"}, correct = 1 },
@@ -2039,18 +2090,22 @@ local function setIconColor(id, col, dur, stagger)
 	end
 
 	for i, item in ipairs(parts) do
-		if typeof(item) == "Instance" then
-			local function apply()
-				if item.Parent then
-					tween(item, { BackgroundColor3 = col }, dur or 0.2)
-				end
+		local function apply()
+			if not item.Parent then
+				return
 			end
 
-			if stagger then
-				task.delay((i - 1) * 0.03, apply)
+			if item:IsA("UIStroke") then
+				tween(item, { Color = col }, dur or 0.2)
 			else
-				apply()
+				tween(item, { BackgroundColor3 = col }, dur or 0.2)
 			end
+		end
+
+		if stagger then
+			task.delay((i - 1) * 0.03, apply)
+		else
+			apply()
 		end
 	end
 end
@@ -2448,4 +2503,4 @@ updateScale()
 --=====================================================================
 
 showPage("main")
-print("[Cloaked Plague] loaded • 4 tabs: Main, Grief, Utilities, Settings")
+print("[Cloaked Plague] loaded • 4 tabs • GREEN EDITION with custom icons 🌿")
