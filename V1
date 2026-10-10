@@ -4,6 +4,7 @@
 --  Tabs: Main  •  Grief  •  Utilities  •  Settings
 --  Brand: rbxthumb Asset 6368110022
 --  Press K to toggle   •   Drag topbar   •   Minimize to pill
+--  Transparency increased for glassier look
 --=====================================================================
 
 local BRAND_ICON_ID = "rbxthumb://type=Asset&id=6368110022&w=150&h=150"
@@ -97,6 +98,24 @@ local Warn    = Color3.fromRGB(255, 194, 102)
 local White   = Color3.fromRGB(255, 255, 255)
 
 --=====================================================================
+--  TRANSPARENCY  (bump these for more/less see-through)
+--=====================================================================
+
+local ALPHA = {
+	Window    = 0.30,
+	Sidebar   = 0.45,
+	Topbar    = 0.40,
+	Card      = 0.38,
+	Page      = 0.38,
+	Input     = 0.52,
+	NavIdle   = 0.55,
+	NavActive = 0.10,
+	Row       = 0.55,
+	Cell      = 0.50,
+	PillBtn   = 0.42,
+}
+
+--=====================================================================
 --  TAB DEFINITIONS
 --=====================================================================
 
@@ -117,7 +136,7 @@ local SUBTITLES = {
 local TOGGLE_KEY = Enum.KeyCode.K
 
 --=====================================================================
---  REGISTRIES  (for live theming / scaling)
+--  REGISTRIES
 --=====================================================================
 
 local themeRegistry  = {}
@@ -207,6 +226,26 @@ local function tx(label)
 		label = label,
 		base = label.TextSize,
 	})
+
+	local c = label.TextColor3
+	local role = nil
+
+	if c == LIGHT.Text then
+		role = "Text"
+	elseif c == LIGHT.TextDim then
+		role = "TextDim"
+	elseif c == LIGHT.TextMute then
+		role = "TextMute"
+	end
+
+	if role then
+		table.insert(themeRegistry, {
+			inst = label,
+			prop = "TextColor3",
+			role = role,
+		})
+	end
+
 	return label
 end
 
@@ -274,7 +313,7 @@ local function makeControlButton(kind, parent, onClick)
 	local btn = new("TextButton", {
 		Size = UDim2.new(0, 30, 0, 30),
 		BackgroundColor3 = THEME.SurfaceHi,
-		BackgroundTransparency = 0.2,
+		BackgroundTransparency = 0.3,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Text = "",
@@ -390,7 +429,7 @@ local function makeControlButton(kind, parent, onClick)
 	btn.MouseLeave:Connect(function()
 		tween(btn, {
 			BackgroundColor3 = THEME.SurfaceHi,
-			BackgroundTransparency = 0.2,
+			BackgroundTransparency = 0.3,
 		}, 0.18)
 
 		for _, b in ipairs(parts) do
@@ -517,7 +556,7 @@ local function makeNavIcon(kind, color, parent)
 end
 
 --=====================================================================
---  WIDGETS  (toggle / segmented)
+--  WIDGETS
 --=====================================================================
 
 local function makeToggle(parent, initial, onChange)
@@ -592,7 +631,7 @@ local function makeSegmented(parent, options, initialIndex, onChange)
 
 			tween(b, {
 				BackgroundColor3 = active and Accent or THEME.Surface,
-				BackgroundTransparency = active and 0 or 0.35,
+				BackgroundTransparency = active and 0 or ALPHA.PillBtn,
 			}, 0.16)
 
 			local l = b:FindFirstChild("L")
@@ -608,7 +647,7 @@ local function makeSegmented(parent, options, initialIndex, onChange)
 		local b = new("TextButton", {
 			Size = UDim2.new(0, 78, 1, 0),
 			BackgroundColor3 = THEME.Surface,
-			BackgroundTransparency = 0.35,
+			BackgroundTransparency = ALPHA.PillBtn,
 			BorderSizePixel = 0,
 			AutoButtonColor = false,
 			Text = "",
@@ -617,6 +656,7 @@ local function makeSegmented(parent, options, initialIndex, onChange)
 		})
 		corner(b, 8)
 		stroke(b, 0.85, 1)
+		theme(b, "BackgroundColor3", "Surface")
 
 		tx(new("TextLabel", {
 			Name = "L",
@@ -683,7 +723,7 @@ local shadow = new("Frame", {
 	Position = UDim2.fromScale(0.5, 0.5),
 	Size = UDim2.new(0, 1030, 0, 650),
 	BackgroundColor3 = THEME.Shadow,
-	BackgroundTransparency = 0.86,
+	BackgroundTransparency = 0.9,
 	BorderSizePixel = 0,
 	ZIndex = 0,
 	Parent = scaleHolder,
@@ -701,13 +741,13 @@ local window = new("Frame", {
 	Position = UDim2.fromScale(0.5, 0.5),
 	Size = UDim2.new(0, 1000, 0, 620),
 	BackgroundColor3 = THEME.Window,
-	BackgroundTransparency = 0.12,
+	BackgroundTransparency = ALPHA.Window,
 	BorderSizePixel = 0,
 	ClipsDescendants = true,
 	Parent = scaleHolder,
 })
 corner(window, 18)
-stroke(window, 0.65, 1)
+stroke(window, 0.72, 1)
 grad(window, ColorSequence.new(THEME.Window, THEME.WindowB), 90)
 theme(window, "BackgroundColor3", "Window")
 
@@ -720,16 +760,15 @@ local sidebar = new("CanvasGroup", {
 	Position = UDim2.new(0, 12, 0, 12),
 	Size = UDim2.new(0, 210, 1, -24),
 	BackgroundColor3 = THEME.Sidebar,
-	BackgroundTransparency = 0.25,
+	BackgroundTransparency = ALPHA.Sidebar,
 	BorderSizePixel = 0,
 	GroupTransparency = 0,
 	Parent = window,
 })
 corner(sidebar, 14)
-stroke(sidebar, 0.78, 1)
+stroke(sidebar, 0.85, 1)
 theme(sidebar, "BackgroundColor3", "Sidebar")
 
--- Brand block
 local brand = new("Frame", {
 	Position = UDim2.new(0, 18, 0, 20),
 	Size = UDim2.new(1, -36, 0, 42),
@@ -763,7 +802,6 @@ tx(new("TextLabel", {
 	Parent = brand,
 }))
 
--- NAVIGATION label
 tx(new("TextLabel", {
 	Position = UDim2.new(0, 22, 0, 84),
 	Size = UDim2.new(1, -44, 0, 14),
@@ -776,7 +814,6 @@ tx(new("TextLabel", {
 	Parent = sidebar,
 }))
 
--- Nav container
 local nav = new("Frame", {
 	Name = "Nav",
 	Position = UDim2.new(0, 12, 0, 106),
@@ -790,18 +827,17 @@ navLayout.Padding = UDim.new(0, 4)
 navLayout.SortOrder = Enum.SortOrder.LayoutOrder
 navLayout.Parent = nav
 
--- User card
 local userCard = new("Frame", {
 	AnchorPoint = Vector2.new(0.5, 1),
 	Position = UDim2.new(0.5, 0, 1, -14),
 	Size = UDim2.new(1, -24, 0, 60),
 	BackgroundColor3 = THEME.Surface,
-	BackgroundTransparency = 0.15,
+	BackgroundTransparency = 0.3,
 	BorderSizePixel = 0,
 	Parent = sidebar,
 })
 corner(userCard, 12)
-stroke(userCard, 0.8, 1)
+stroke(userCard, 0.85, 1)
 theme(userCard, "BackgroundColor3", "Surface")
 
 local avatar = new("ImageLabel", {
@@ -851,12 +887,12 @@ local topbar = new("Frame", {
 	Position = UDim2.new(0, 234, 0, 12),
 	Size = UDim2.new(1, -246, 0, 60),
 	BackgroundColor3 = THEME.Surface,
-	BackgroundTransparency = 0.2,
+	BackgroundTransparency = ALPHA.Topbar,
 	BorderSizePixel = 0,
 	Parent = window,
 })
 corner(topbar, 12)
-stroke(topbar, 0.8, 1)
+stroke(topbar, 0.85, 1)
 theme(topbar, "BackgroundColor3", "Surface")
 
 local pageTitle = tx(new("TextLabel", {
@@ -942,7 +978,7 @@ for _, tab in ipairs(TABS) do
 		Name = tab.id,
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = THEME.Content,
-		BackgroundTransparency = 0.15,
+		BackgroundTransparency = ALPHA.Page,
 		BorderSizePixel = 0,
 		Visible = false,
 		ScrollBarThickness = 4,
@@ -952,7 +988,7 @@ for _, tab in ipairs(TABS) do
 		Parent = pageHolder,
 	})
 	corner(p, 12)
-	stroke(p, 0.8, 1)
+	stroke(p, 0.85, 1)
 	theme(p, "BackgroundColor3", "Content")
 
 	local layout = Instance.new("UIListLayout")
@@ -974,13 +1010,13 @@ local function pageCard(parent, height, order)
 	local card = new("Frame", {
 		Size = UDim2.new(1, 0, 0, height),
 		BackgroundColor3 = THEME.Surface,
-		BackgroundTransparency = 0.15,
+		BackgroundTransparency = ALPHA.Card,
 		BorderSizePixel = 0,
 		LayoutOrder = order or 1,
 		Parent = parent,
 	})
 	corner(card, 12)
-	stroke(card, 0.85, 1)
+	stroke(card, 0.88, 1)
 	theme(card, "BackgroundColor3", "Surface")
 	return card
 end
@@ -1000,13 +1036,12 @@ local function sectionLabel(parent, text, y)
 end
 
 --=====================================================================
---  MAIN TAB  (was Overview)
+--  MAIN TAB
 --=====================================================================
 
 do
 	local home = pages.main
 
-	-- Welcome card
 	local welcome = pageCard(home, 130, 1)
 	sectionLabel(welcome, "Welcome", 16)
 
@@ -1054,7 +1089,6 @@ do
 		Parent = pill,
 	}))
 
-	-- Hub Status card
 	local status = pageCard(home, 190, 2)
 	sectionLabel(status, "Hub Status", 16)
 
@@ -1074,7 +1108,7 @@ do
 	local function statusCell(order, label, value, dotColor)
 		local cell = new("Frame", {
 			BackgroundColor3 = THEME.SurfaceHi,
-			BackgroundTransparency = 0.35,
+			BackgroundTransparency = ALPHA.Cell,
 			BorderSizePixel = 0,
 			LayoutOrder = order,
 			Parent = statusGrid,
@@ -1122,7 +1156,6 @@ do
 	statusCell(3, "CURRENT USER", LP.DisplayName, AccentB)
 	statusCell(4, "ROLE", "User", Warn)
 
-	-- Quick Actions card
 	local actions = pageCard(home, 140, 3)
 	sectionLabel(actions, "Quick Actions", 16)
 
@@ -1143,7 +1176,7 @@ do
 		local btn = new("TextButton", {
 			Size = UDim2.new(0.5, -5, 1, 0),
 			BackgroundColor3 = THEME.SurfaceHi,
-			BackgroundTransparency = 0.2,
+			BackgroundTransparency = 0.35,
 			BorderSizePixel = 0,
 			AutoButtonColor = false,
 			Text = "",
@@ -1188,11 +1221,11 @@ do
 		}))
 
 		btn.MouseEnter:Connect(function()
-			tween(btn, { BackgroundTransparency = 0.05 }, 0.15)
+			tween(btn, { BackgroundTransparency = 0.15 }, 0.15)
 		end)
 
 		btn.MouseLeave:Connect(function()
-			tween(btn, { BackgroundTransparency = 0.2 }, 0.15)
+			tween(btn, { BackgroundTransparency = 0.35 }, 0.15)
 		end)
 
 		btn.MouseButton1Click:Connect(function()
@@ -1203,7 +1236,6 @@ do
 	quickAction(1, "Rejoin Server", AccentB)
 	quickAction(2, "Server Hop", Accent)
 
-	-- Session card
 	local session = pageCard(home, 110, 4)
 	sectionLabel(session, "Session", 16)
 
@@ -1233,7 +1265,7 @@ do
 end
 
 --=====================================================================
---  GRIEF TAB  (was Modules)
+--  GRIEF TAB
 --=====================================================================
 
 local function moduleRow(parent, opts)
@@ -1308,7 +1340,7 @@ local function moduleRow(parent, opts)
 			Position = UDim2.new(1, -12, 0.5, 0),
 			Size = UDim2.new(0, 74, 0, 28),
 			BackgroundColor3 = THEME.SurfaceHi,
-			BackgroundTransparency = 0.2,
+			BackgroundTransparency = 0.35,
 			BorderSizePixel = 0,
 			AutoButtonColor = false,
 			Text = "",
@@ -1338,7 +1370,7 @@ local function moduleRow(parent, opts)
 		btn.MouseLeave:Connect(function()
 			tween(btn, {
 				BackgroundColor3 = THEME.SurfaceHi,
-				BackgroundTransparency = 0.2,
+				BackgroundTransparency = 0.35,
 			}, 0.14)
 		end)
 
@@ -1374,7 +1406,6 @@ do
 	local mods = pages.grief
 	local card, body, rows
 
-	-- Movement
 	card, body = categoryCard(mods, "Movement", 1, 4)
 	rows = {
 		{ name = "Fly",           desc = "Free flight movement", color = Success, kind = "toggle" },
@@ -1386,7 +1417,6 @@ do
 		moduleRow(body, r)
 	end
 
-	-- Player Effects
 	card, body = categoryCard(mods, "Player Effects", 2, 3)
 	rows = {
 		{ name = "Dance",      desc = "Loop dance animation", color = Warn, kind = "toggle" },
@@ -1397,7 +1427,6 @@ do
 		moduleRow(body, r)
 	end
 
-	-- Messages
 	card, body = categoryCard(mods, "Messages", 3, 2)
 	rows = {
 		{ name = "Welcome Message", desc = "Send welcome on join",  color = AccentB, kind = "toggle" },
@@ -1407,7 +1436,6 @@ do
 		moduleRow(body, r)
 	end
 
-	-- Game Actions
 	card, body = categoryCard(mods, "Game Actions", 4, 3)
 	rows = {
 		{ name = "Grief",       desc = "Game-action placeholder", color = Danger, kind = "button", buttonText = "Run" },
@@ -1418,7 +1446,6 @@ do
 		moduleRow(body, r)
 	end
 
-	-- Protection
 	card, body = categoryCard(mods, "Protection", 5, 1)
 	moduleRow(body, {
 		name = "Anti-Grief",
@@ -1427,7 +1454,6 @@ do
 		kind = "toggle",
 	})
 
-	-- Quiz card
 	local quiz = pageCard(mods, 400, 6)
 	sectionLabel(quiz, "Quiz", 14)
 
@@ -1442,7 +1468,7 @@ do
 		{ q = "What is the accent color of Cloaked Plague?", opts = {"Purple", "Green", "Red", "Blue"}, correct = 1 },
 		{ q = "Which key toggles the interface?",             opts = {"K", "J", "L", "M"}, correct = 1 },
 		{ q = "How do you minimize the window?",              opts = {"Click the dash", "Press ESC", "Close it", "Right-click"}, correct = 1 },
-		{ q = "Where do you find the script library?",        opts = {"Scripts tab", "Main", "Settings", "Grief"}, correct = 1 },
+		{ q = "Which tab has the quiz?",                      opts = {"Grief", "Main", "Settings", "Utilities"}, correct = 1 },
 	}
 
 	local qIdx = 1
@@ -1537,7 +1563,7 @@ do
 		local b = new("TextButton", {
 			Size = UDim2.new(1, 0, 0, 42),
 			BackgroundColor3 = THEME.SurfaceHi,
-			BackgroundTransparency = 0.2,
+			BackgroundTransparency = 0.35,
 			BorderSizePixel = 0,
 			AutoButtonColor = false,
 			Text = "",
@@ -1621,7 +1647,7 @@ do
 		for i, entry in ipairs(answerButtons) do
 			entry.lbl.Text = q.opts[i] or ""
 			entry.btn.BackgroundColor3 = THEME.SurfaceHi
-			entry.btn.BackgroundTransparency = 0.2
+			entry.btn.BackgroundTransparency = 0.35
 		end
 	end
 
@@ -1689,13 +1715,12 @@ do
 end
 
 --=====================================================================
---  UTILITIES TAB  (was Scripts)
+--  UTILITIES TAB
 --=====================================================================
 
 do
 	local sp = pages.utilities
 
-	-- Search card
 	local searchCard = pageCard(sp, 60, 1)
 
 	local searchBar = new("Frame", {
@@ -1703,12 +1728,12 @@ do
 		AnchorPoint = Vector2.new(0, 0.5),
 		Size = UDim2.new(1, -32, 0, 36),
 		BackgroundColor3 = THEME.SurfaceHi,
-		BackgroundTransparency = 0.35,
+		BackgroundTransparency = ALPHA.Input,
 		BorderSizePixel = 0,
 		Parent = searchCard,
 	})
 	corner(searchBar, 10)
-	stroke(searchBar, 0.85, 1)
+	stroke(searchBar, 0.88, 1)
 	theme(searchBar, "BackgroundColor3", "SurfaceHi")
 
 	local searchInput = new("TextBox", {
@@ -1726,8 +1751,9 @@ do
 		Parent = searchBar,
 	})
 	table.insert(textRegistry, { label = searchInput, base = 12 })
+	table.insert(themeRegistry, { inst = searchInput, prop = "TextColor3", role = "Text" })
+	table.insert(themeRegistry, { inst = searchInput, prop = "PlaceholderColor3", role = "TextMute" })
 
-	-- Categories card
 	local catCard = pageCard(sp, 60, 2)
 	sectionLabel(catCard, "Categories", 12)
 
@@ -1754,7 +1780,7 @@ do
 
 			tween(b, {
 				BackgroundColor3 = active and Accent or THEME.SurfaceHi,
-				BackgroundTransparency = active and 0 or 0.35,
+				BackgroundTransparency = active and 0 or ALPHA.PillBtn,
 			}, 0.14)
 
 			local l = b:FindFirstChild("L")
@@ -1770,7 +1796,7 @@ do
 		local b = new("TextButton", {
 			Size = UDim2.new(0, 82, 1, 0),
 			BackgroundColor3 = THEME.SurfaceHi,
-			BackgroundTransparency = 0.35,
+			BackgroundTransparency = ALPHA.PillBtn,
 			BorderSizePixel = 0,
 			AutoButtonColor = false,
 			Text = "",
@@ -1778,7 +1804,8 @@ do
 			Parent = catRow,
 		})
 		corner(b, 6)
-		stroke(b, 0.88, 1)
+		stroke(b, 0.9, 1)
+		theme(b, "BackgroundColor3", "SurfaceHi")
 
 		tx(new("TextLabel", {
 			Name = "L",
@@ -1801,7 +1828,6 @@ do
 
 	refreshCats()
 
-	-- Empty state
 	local emptyCard = pageCard(sp, 260, 3)
 
 	local emptyIcon = new("Frame", {
@@ -1809,12 +1835,12 @@ do
 		Position = UDim2.new(0.5, 0, 0, 34),
 		Size = UDim2.new(0, 68, 0, 68),
 		BackgroundColor3 = THEME.SurfaceHi,
-		BackgroundTransparency = 0.3,
+		BackgroundTransparency = 0.4,
 		BorderSizePixel = 0,
 		Parent = emptyCard,
 	})
 	corner(emptyIcon, 999)
-	stroke(emptyIcon, 0.7, 2)
+	stroke(emptyIcon, 0.75, 2)
 	theme(emptyIcon, "BackgroundColor3", "SurfaceHi")
 
 	local ic = new("Frame", {
@@ -1852,7 +1878,6 @@ do
 		Parent = emptyCard,
 	}))
 
-	-- Favorites card
 	local favCard = pageCard(sp, 100, 4)
 	sectionLabel(favCard, "Favorites", 16)
 
@@ -1881,7 +1906,7 @@ do
 			Position = UDim2.new(0, 16, 0, yPos),
 			Size = UDim2.new(1, -32, 0, 62),
 			BackgroundColor3 = THEME.SurfaceHi,
-			BackgroundTransparency = 0.5,
+			BackgroundTransparency = ALPHA.Row,
 			BorderSizePixel = 0,
 			Parent = parent,
 		})
@@ -1923,7 +1948,6 @@ do
 		buildControl(holder)
 	end
 
-	-- Appearance
 	local appear = pageCard(s, 200, 1)
 	sectionLabel(appear, "Appearance", 16)
 
@@ -1941,7 +1965,6 @@ do
 		end)
 	end)
 
-	-- UI Size
 	local uiCard = pageCard(s, 130, 2)
 	sectionLabel(uiCard, "UI Size", 16)
 
@@ -1957,7 +1980,6 @@ do
 		tween(uiScale, { Scale = scales[idx] }, 0.25)
 	end)
 
-	-- Text Size
 	local textCard = pageCard(s, 130, 3)
 	sectionLabel(textCard, "Text Size", 16)
 
@@ -1973,7 +1995,6 @@ do
 		applyTextScale(scales[idx])
 	end)
 
-	-- About
 	local about = pageCard(s, 110, 4)
 	sectionLabel(about, "About", 16)
 
@@ -2047,7 +2068,7 @@ local function showPage(id)
 
 		tween(btn, {
 			BackgroundColor3 = active and THEME.SurfaceHi or THEME.Surface,
-			BackgroundTransparency = active and 0.05 or 0.5,
+			BackgroundTransparency = active and ALPHA.NavActive or ALPHA.NavIdle,
 		}, 0.22)
 
 		if bar then
@@ -2084,7 +2105,7 @@ local function showPage(id)
 			}, 0.42, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 
 			tween(p, {
-				BackgroundTransparency = 0.15,
+				BackgroundTransparency = ALPHA.Page,
 			}, 0.32)
 		else
 			p.Visible = false
@@ -2097,7 +2118,7 @@ for i, tab in ipairs(TABS) do
 		Name = "Nav_" .. tab.id,
 		Size = UDim2.new(1, 0, 0, 42),
 		BackgroundColor3 = THEME.Surface,
-		BackgroundTransparency = 0.5,
+		BackgroundTransparency = ALPHA.NavIdle,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Text = "",
@@ -2105,7 +2126,7 @@ for i, tab in ipairs(TABS) do
 		Parent = nav,
 	})
 	corner(btn, 10)
-	stroke(btn, 0.85, 1)
+	stroke(btn, 0.88, 1)
 	theme(btn, "BackgroundColor3", "Surface")
 
 	local bs = Instance.new("UIScale")
@@ -2142,14 +2163,14 @@ for i, tab in ipairs(TABS) do
 
 	btn.MouseEnter:Connect(function()
 		if currentPage ~= tab.id then
-			tween(btn, { BackgroundTransparency = 0.3 }, 0.16)
+			tween(btn, { BackgroundTransparency = 0.35 }, 0.16)
 			setIconColor(tab.id, THEME.TextDim, 0.18, true)
 		end
 	end)
 
 	btn.MouseLeave:Connect(function()
 		if currentPage ~= tab.id then
-			tween(btn, { BackgroundTransparency = 0.5 }, 0.16)
+			tween(btn, { BackgroundTransparency = ALPHA.NavIdle }, 0.16)
 			setIconColor(tab.id, THEME.TextMute, 0.18, false)
 		end
 	end)
@@ -2201,12 +2222,12 @@ function setVisible(state)
 
 		tween(window, {
 			Size = UDim2.new(0, 1000, 0, 620),
-			BackgroundTransparency = 0.12,
+			BackgroundTransparency = ALPHA.Window,
 		}, 0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
 		tween(shadow, {
 			Size = UDim2.new(0, 1030, 0, 650),
-			BackgroundTransparency = 0.86,
+			BackgroundTransparency = 0.9,
 		}, 0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 	else
 		tween(window, {
@@ -2287,7 +2308,7 @@ local function setMinimized(state)
 		tween(topbar, {
 			Position = UDim2.new(0, 234, 0, 12),
 			Size = UDim2.new(1, -246, 0, 60),
-			BackgroundTransparency = 0.2,
+			BackgroundTransparency = ALPHA.Topbar,
 		}, 0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
 		tween(window, {
