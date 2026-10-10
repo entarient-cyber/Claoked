@@ -1,0 +1,2430 @@
+--!nonstrict
+--=====================================================================
+--  CLOAKED PLAGUE  •  Complete Interface
+--  Tabs: Main  •  Grief  •  Utilities  •  Settings
+--  Brand: rbxthumb Asset 6368110022
+--  Press K to toggle   •   Drag topbar   •   Minimize to pill
+--=====================================================================
+
+local BRAND_ICON_ID = "rbxthumb://type=Asset&id=6368110022&w=150&h=150"
+
+local Players          = game:GetService("Players")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local LP = Players.LocalPlayer
+
+--=====================================================================
+--  PARENT  (executor-safe)
+--=====================================================================
+
+local PARENT
+
+if type(gethui) == "function" then
+	local ok, hui = pcall(gethui)
+	if ok and hui then
+		PARENT = hui
+	end
+end
+
+if not PARENT then
+	local ok, cg = pcall(function()
+		return game:GetService("CoreGui")
+	end)
+	if ok and cg then
+		local ok2 = pcall(function()
+			local testFolder = Instance.new("Folder")
+			testFolder.Parent = cg
+			testFolder:Destroy()
+		end)
+		if ok2 then
+			PARENT = cg
+		end
+	end
+end
+
+if not PARENT then
+	PARENT = LP:WaitForChild("PlayerGui")
+end
+
+local prev = PARENT:FindFirstChild("CloakedPlague")
+if prev then
+	prev:Destroy()
+end
+
+--=====================================================================
+--  COLOR PALETTES
+--=====================================================================
+
+local LIGHT = {
+	Window     = Color3.fromRGB(250, 250, 253),
+	WindowB    = Color3.fromRGB(238, 240, 248),
+	Sidebar    = Color3.fromRGB(248, 249, 252),
+	Surface    = Color3.fromRGB(255, 255, 255),
+	SurfaceHi  = Color3.fromRGB(240, 242, 250),
+	Content    = Color3.fromRGB(252, 252, 255),
+	Text       = Color3.fromRGB(28, 30, 42),
+	TextDim    = Color3.fromRGB(98, 105, 128),
+	TextMute   = Color3.fromRGB(150, 156, 178),
+	Stroke     = Color3.fromRGB(180, 186, 210),
+	Shadow     = Color3.fromRGB(60, 60, 90),
+}
+
+local DARK = {
+	Window     = Color3.fromRGB(28, 30, 40),
+	WindowB    = Color3.fromRGB(22, 24, 32),
+	Sidebar    = Color3.fromRGB(24, 26, 34),
+	Surface    = Color3.fromRGB(36, 39, 50),
+	SurfaceHi  = Color3.fromRGB(46, 50, 64),
+	Content    = Color3.fromRGB(30, 33, 44),
+	Text       = Color3.fromRGB(238, 241, 248),
+	TextDim    = Color3.fromRGB(155, 162, 182),
+	TextMute   = Color3.fromRGB(100, 108, 130),
+	Stroke     = Color3.fromRGB(66, 72, 92),
+	Shadow     = Color3.fromRGB(0, 0, 0),
+}
+
+local THEME = {}
+for k, v in pairs(LIGHT) do
+	THEME[k] = v
+end
+
+local Accent  = Color3.fromRGB(110, 90, 240)
+local AccentB = Color3.fromRGB(70, 180, 240)
+local Danger  = Color3.fromRGB(230, 90, 110)
+local Success = Color3.fromRGB(62, 216, 176)
+local Warn    = Color3.fromRGB(255, 194, 102)
+local White   = Color3.fromRGB(255, 255, 255)
+
+--=====================================================================
+--  TAB DEFINITIONS
+--=====================================================================
+
+local TABS = {
+	{ id = "main",      label = "Main",      icon = "grid" },
+	{ id = "grief",     label = "Grief",     icon = "layers" },
+	{ id = "utilities", label = "Utilities", icon = "chart" },
+	{ id = "settings",  label = "Settings",  icon = "gear" },
+}
+
+local SUBTITLES = {
+	main      = "Hub status and quick actions",
+	grief     = "Movement, player actions, effects",
+	utilities = "Tools, messaging, and extras",
+	settings  = "Appearance and interface",
+}
+
+local TOGGLE_KEY = Enum.KeyCode.K
+
+--=====================================================================
+--  REGISTRIES  (for live theming / scaling)
+--=====================================================================
+
+local themeRegistry  = {}
+local cornerRegistry = {}
+local textRegistry   = {}
+
+--=====================================================================
+--  CORE HELPERS
+--=====================================================================
+
+local function new(class, props)
+	local inst = Instance.new(class)
+	local parent = nil
+
+	for k, v in pairs(props or {}) do
+		if k == "Parent" then
+			parent = v
+		else
+			inst[k] = v
+		end
+	end
+
+	if parent then
+		inst.Parent = parent
+	end
+
+	return inst
+end
+
+local function corner(inst, radius)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius)
+	c.Parent = inst
+
+	table.insert(cornerRegistry, {
+		corner = c,
+		radius = radius,
+	})
+
+	return c
+end
+
+local function stroke(inst, transparency, thickness, color)
+	local s = Instance.new("UIStroke")
+	s.Color = color or THEME.Stroke
+	s.Thickness = thickness or 1
+	s.Transparency = transparency or 0.8
+	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	s.Parent = inst
+	return s
+end
+
+local function grad(inst, colorSeq, rotation)
+	local g = Instance.new("UIGradient")
+	g.Color = colorSeq
+	g.Rotation = rotation or 90
+	g.Parent = inst
+	return g
+end
+
+local function tween(inst, props, duration, style, direction)
+	local info = TweenInfo.new(
+		duration or 0.22,
+		style or Enum.EasingStyle.Quint,
+		direction or Enum.EasingDirection.Out
+	)
+
+	local t = TweenService:Create(inst, info, props)
+	t:Play()
+	return t
+end
+
+local function theme(inst, property, role)
+	inst[property] = THEME[role]
+
+	table.insert(themeRegistry, {
+		inst = inst,
+		prop = property,
+		role = role,
+	})
+
+	return inst
+end
+
+local function tx(label)
+	table.insert(textRegistry, {
+		label = label,
+		base = label.TextSize,
+	})
+	return label
+end
+
+local function applyTheme(palette)
+	for _, entry in ipairs(themeRegistry) do
+		if entry.inst.Parent then
+			entry.inst[entry.prop] = palette[entry.role]
+		end
+	end
+end
+
+local function applyRoundCorners(enabled)
+	for _, entry in ipairs(cornerRegistry) do
+		if entry.corner.Parent then
+			entry.corner.CornerRadius = UDim.new(0, enabled and entry.radius or 0)
+		end
+	end
+end
+
+local function applyTextScale(scale)
+	for _, entry in ipairs(textRegistry) do
+		if entry.label.Parent then
+			entry.label.TextSize = math.max(8, math.floor(entry.base * scale + 0.5))
+		end
+	end
+end
+
+local function flashUnavailable(btn)
+	local orig = btn.BackgroundColor3
+	tween(btn, { BackgroundColor3 = Danger }, 0.08)
+	task.delay(0.16, function()
+		if btn.Parent then
+			tween(btn, { BackgroundColor3 = orig }, 0.22)
+		end
+	end)
+end
+
+--=====================================================================
+--  BRAND MARK
+--=====================================================================
+
+local function buildBrandMark(size, parent)
+	local mark = new("ImageLabel", {
+		Name = "BrandMark",
+		Size = UDim2.new(0, size, 0, size),
+		BackgroundColor3 = THEME.SurfaceHi,
+		BackgroundTransparency = 0.2,
+		BorderSizePixel = 0,
+		Image = BRAND_ICON_ID,
+		ScaleType = Enum.ScaleType.Fit,
+		Parent = parent,
+	})
+
+	corner(mark, math.floor(size * 0.32))
+	stroke(mark, 0.7, 1)
+
+	return mark
+end
+
+--=====================================================================
+--  CONTROL BUTTONS  (minimize / close)
+--=====================================================================
+
+local function makeControlButton(kind, parent, onClick)
+	local btn = new("TextButton", {
+		Size = UDim2.new(0, 30, 0, 30),
+		BackgroundColor3 = THEME.SurfaceHi,
+		BackgroundTransparency = 0.2,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		Parent = parent,
+	})
+
+	corner(btn, 8)
+	stroke(btn, 0.78, 1)
+	theme(btn, "BackgroundColor3", "SurfaceHi")
+
+	local parts = {}
+	local minIcon = nil
+	local restoreIcon = nil
+	local minBars = {}
+	local restoreBars = {}
+	local closeBars = {}
+
+	local function addBar(parentFrame, rotation)
+		local bar = new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, 0, 0.5, 0),
+			Size = UDim2.new(0, 10, 0, 2),
+			BackgroundColor3 = THEME.TextDim,
+			BorderSizePixel = 0,
+			Rotation = rotation or 0,
+			Parent = parentFrame,
+		})
+		corner(bar, 999)
+		return bar
+	end
+
+	if kind == "min" then
+		minIcon = new("Frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Parent = btn,
+		})
+		table.insert(minBars, addBar(minIcon))
+
+		restoreIcon = new("Frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Visible = false,
+			Parent = btn,
+		})
+
+		local boxSize = 10
+		local thick = 2
+
+		local sides = {
+			{
+				Size = UDim2.new(0, boxSize, 0, thick),
+				Position = UDim2.new(0.5, 0, 0.5, -boxSize / 2 + thick / 2),
+			},
+			{
+				Size = UDim2.new(0, boxSize, 0, thick),
+				Position = UDim2.new(0.5, 0, 0.5,  boxSize / 2 - thick / 2),
+			},
+			{
+				Size = UDim2.new(0, thick, 0, boxSize),
+				Position = UDim2.new(0.5, -boxSize / 2 + thick / 2, 0.5, 0),
+			},
+			{
+				Size = UDim2.new(0, thick, 0, boxSize),
+				Position = UDim2.new(0.5,  boxSize / 2 - thick / 2, 0.5, 0),
+			},
+		}
+
+		for _, s in ipairs(sides) do
+			local bar = new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = s.Position,
+				Size = s.Size,
+				BackgroundColor3 = THEME.TextDim,
+				BorderSizePixel = 0,
+				Parent = restoreIcon,
+			})
+			corner(bar, 1)
+			table.insert(restoreBars, bar)
+		end
+
+		parts = minBars
+
+	elseif kind == "close" then
+		local closeIcon = new("Frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Parent = btn,
+		})
+		table.insert(closeBars, addBar(closeIcon, 45))
+		table.insert(closeBars, addBar(closeIcon, -45))
+		parts = closeBars
+	end
+
+	btn.MouseEnter:Connect(function()
+		if kind == "close" then
+			tween(btn, {
+				BackgroundColor3 = Danger,
+				BackgroundTransparency = 0,
+			}, 0.18)
+		else
+			tween(btn, {
+				BackgroundColor3 = Accent,
+				BackgroundTransparency = 0,
+			}, 0.18)
+		end
+
+		for _, b in ipairs(parts) do
+			tween(b, { BackgroundColor3 = White }, 0.18)
+		end
+	end)
+
+	btn.MouseLeave:Connect(function()
+		tween(btn, {
+			BackgroundColor3 = THEME.SurfaceHi,
+			BackgroundTransparency = 0.2,
+		}, 0.18)
+
+		for _, b in ipairs(parts) do
+			tween(b, { BackgroundColor3 = THEME.TextDim }, 0.18)
+		end
+	end)
+
+	if onClick then
+		btn.MouseButton1Click:Connect(onClick)
+	end
+
+	local api = {}
+
+	function api.setState(state)
+		if kind ~= "min" then
+			return
+		end
+
+		if state == "restore" then
+			minIcon.Visible = false
+			restoreIcon.Visible = true
+			parts = restoreBars
+		else
+			minIcon.Visible = true
+			restoreIcon.Visible = false
+			parts = minBars
+		end
+	end
+
+	return btn, api
+end
+
+--=====================================================================
+--  NAV ICONS
+--=====================================================================
+
+local function makeNavIcon(kind, color, parent)
+	local holder = new("Frame", {
+		Name = "Icon",
+		Position = UDim2.new(0, 18, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Size = UDim2.new(0, 20, 0, 20),
+		BackgroundTransparency = 1,
+		Parent = parent,
+	})
+
+	local parts = {}
+
+	if kind == "grid" then
+		for r = 0, 1 do
+			for c = 0, 1 do
+				local sq = new("Frame", {
+					Position = UDim2.new(0, c * 11, 0, r * 11),
+					Size = UDim2.new(0, 9, 0, 9),
+					BackgroundColor3 = color,
+					BorderSizePixel = 0,
+					Parent = holder,
+				})
+				corner(sq, 2)
+				table.insert(parts, sq)
+			end
+		end
+
+	elseif kind == "layers" then
+		for i = 0, 2 do
+			local bar = new("Frame", {
+				Position = UDim2.new(0, 0, 0, i * 7 + 1),
+				Size = UDim2.new(1, 0, 0, 4),
+				BackgroundColor3 = color,
+				BorderSizePixel = 0,
+				Parent = holder,
+			})
+			corner(bar, 2)
+			table.insert(parts, bar)
+		end
+
+	elseif kind == "chart" then
+		local heights = { 6, 11, 15, 9 }
+
+		for i = 1, 4 do
+			local h = heights[i]
+			local bar = new("Frame", {
+				Position = UDim2.new(0, 2 + (i - 1) * 5, 1, -h),
+				Size = UDim2.new(0, 3, 0, h),
+				BackgroundColor3 = color,
+				BorderSizePixel = 0,
+				Parent = holder,
+			})
+			corner(bar, 1)
+			table.insert(parts, bar)
+		end
+
+	elseif kind == "gear" then
+		for i = 0, 5 do
+			local angle = math.rad(i * 60)
+			local x = 10 + math.cos(angle) * 8
+			local y = 10 + math.sin(angle) * 8
+
+			local tick = new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0, x, 0, y),
+				Size = UDim2.new(0, 4, 0, 4),
+				BackgroundColor3 = color,
+				BorderSizePixel = 0,
+				Parent = holder,
+			})
+			corner(tick, 1)
+			table.insert(parts, tick)
+		end
+
+		local center = new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, 0, 0.5, 0),
+			Size = UDim2.new(0, 9, 0, 9),
+			BackgroundColor3 = color,
+			BorderSizePixel = 0,
+			Parent = holder,
+		})
+		corner(center, 999)
+		table.insert(parts, center)
+	end
+
+	return holder, parts
+end
+
+--=====================================================================
+--  WIDGETS  (toggle / segmented)
+--=====================================================================
+
+local function makeToggle(parent, initial, onChange)
+	local isOn = initial or false
+
+	local pill = new("TextButton", {
+		Size = UDim2.new(0, 38, 0, 22),
+		BackgroundColor3 = isOn and Accent or THEME.SurfaceHi,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		Parent = parent,
+	})
+	corner(pill, 999)
+
+	local knob = new("Frame", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = isOn
+			and UDim2.new(1, -19, 0.5, 0)
+			or UDim2.new(0, 3, 0.5, 0),
+		Size = UDim2.new(0, 16, 0, 16),
+		BackgroundColor3 = White,
+		BorderSizePixel = 0,
+		Parent = pill,
+	})
+	corner(knob, 999)
+
+	local function refresh()
+		tween(pill, {
+			BackgroundColor3 = isOn and Accent or THEME.SurfaceHi,
+		}, 0.18)
+
+		tween(knob, {
+			Position = isOn
+				and UDim2.new(1, -19, 0.5, 0)
+				or UDim2.new(0, 3, 0.5, 0),
+		}, 0.2)
+	end
+
+	pill.MouseButton1Click:Connect(function()
+		isOn = not isOn
+		refresh()
+		if onChange then
+			onChange(isOn)
+		end
+	end)
+
+	return pill
+end
+
+local function makeSegmented(parent, options, initialIndex, onChange)
+	local width = #options * 78 + (#options - 1) * 6
+
+	local container = new("Frame", {
+		Size = UDim2.new(0, width, 0, 32),
+		BackgroundTransparency = 1,
+		Parent = parent,
+	})
+
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.Padding = UDim.new(0, 6)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = container
+
+	local buttons = {}
+	local activeIndex = initialIndex or 1
+
+	local function refresh()
+		for i, b in ipairs(buttons) do
+			local active = (i == activeIndex)
+
+			tween(b, {
+				BackgroundColor3 = active and Accent or THEME.Surface,
+				BackgroundTransparency = active and 0 or 0.35,
+			}, 0.16)
+
+			local l = b:FindFirstChild("L")
+			if l then
+				tween(l, {
+					TextColor3 = active and White or THEME.TextDim,
+				}, 0.16)
+			end
+		end
+	end
+
+	for i, opt in ipairs(options) do
+		local b = new("TextButton", {
+			Size = UDim2.new(0, 78, 1, 0),
+			BackgroundColor3 = THEME.Surface,
+			BackgroundTransparency = 0.35,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "",
+			LayoutOrder = i,
+			Parent = container,
+		})
+		corner(b, 8)
+		stroke(b, 0.85, 1)
+
+		tx(new("TextLabel", {
+			Name = "L",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Text = opt,
+			TextColor3 = THEME.TextDim,
+			Font = Enum.Font.GothamBold,
+			TextSize = 11,
+			Parent = b,
+		}))
+
+		b.MouseButton1Click:Connect(function()
+			if activeIndex == i then
+				return
+			end
+			activeIndex = i
+			refresh()
+			if onChange then
+				onChange(i)
+			end
+		end)
+
+		table.insert(buttons, b)
+	end
+
+	refresh()
+	return container
+end
+
+--=====================================================================
+--  ROOT GUI
+--=====================================================================
+
+local gui = new("ScreenGui", {
+	Name = "CloakedPlague",
+	ResetOnSpawn = false,
+	IgnoreGuiInset = true,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+	DisplayOrder = 999,
+	Parent = PARENT,
+})
+
+local scaleHolder = new("Frame", {
+	Name = "ScaleHolder",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromScale(1, 1),
+	BackgroundTransparency = 1,
+	Parent = gui,
+})
+
+local uiScale = Instance.new("UIScale")
+uiScale.Scale = 1
+uiScale.Parent = scaleHolder
+
+--=====================================================================
+--  SHADOW
+--=====================================================================
+
+local shadow = new("Frame", {
+	Name = "Shadow",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.new(0, 1030, 0, 650),
+	BackgroundColor3 = THEME.Shadow,
+	BackgroundTransparency = 0.86,
+	BorderSizePixel = 0,
+	ZIndex = 0,
+	Parent = scaleHolder,
+})
+corner(shadow, 24)
+theme(shadow, "BackgroundColor3", "Shadow")
+
+--=====================================================================
+--  WINDOW
+--=====================================================================
+
+local window = new("Frame", {
+	Name = "Window",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.new(0, 1000, 0, 620),
+	BackgroundColor3 = THEME.Window,
+	BackgroundTransparency = 0.12,
+	BorderSizePixel = 0,
+	ClipsDescendants = true,
+	Parent = scaleHolder,
+})
+corner(window, 18)
+stroke(window, 0.65, 1)
+grad(window, ColorSequence.new(THEME.Window, THEME.WindowB), 90)
+theme(window, "BackgroundColor3", "Window")
+
+--=====================================================================
+--  SIDEBAR
+--=====================================================================
+
+local sidebar = new("CanvasGroup", {
+	Name = "Sidebar",
+	Position = UDim2.new(0, 12, 0, 12),
+	Size = UDim2.new(0, 210, 1, -24),
+	BackgroundColor3 = THEME.Sidebar,
+	BackgroundTransparency = 0.25,
+	BorderSizePixel = 0,
+	GroupTransparency = 0,
+	Parent = window,
+})
+corner(sidebar, 14)
+stroke(sidebar, 0.78, 1)
+theme(sidebar, "BackgroundColor3", "Sidebar")
+
+-- Brand block
+local brand = new("Frame", {
+	Position = UDim2.new(0, 18, 0, 20),
+	Size = UDim2.new(1, -36, 0, 42),
+	BackgroundTransparency = 1,
+	Parent = sidebar,
+})
+
+buildBrandMark(36, brand)
+
+tx(new("TextLabel", {
+	Position = UDim2.new(0, 48, 0, 0),
+	Size = UDim2.new(1, -48, 0, 20),
+	BackgroundTransparency = 1,
+	Text = "CLOAKED PLAGUE",
+	TextColor3 = THEME.Text,
+	Font = Enum.Font.GothamBlack,
+	TextSize = 13,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Parent = brand,
+}))
+
+tx(new("TextLabel", {
+	Position = UDim2.new(0, 48, 0, 20),
+	Size = UDim2.new(1, -48, 0, 14),
+	BackgroundTransparency = 1,
+	Text = "INTERFACE",
+	TextColor3 = THEME.TextMute,
+	Font = Enum.Font.GothamMedium,
+	TextSize = 9,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Parent = brand,
+}))
+
+-- NAVIGATION label
+tx(new("TextLabel", {
+	Position = UDim2.new(0, 22, 0, 84),
+	Size = UDim2.new(1, -44, 0, 14),
+	BackgroundTransparency = 1,
+	Text = "NAVIGATION",
+	TextColor3 = THEME.TextMute,
+	Font = Enum.Font.GothamBold,
+	TextSize = 9,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Parent = sidebar,
+}))
+
+-- Nav container
+local nav = new("Frame", {
+	Name = "Nav",
+	Position = UDim2.new(0, 12, 0, 106),
+	Size = UDim2.new(1, -24, 0, 260),
+	BackgroundTransparency = 1,
+	Parent = sidebar,
+})
+
+local navLayout = Instance.new("UIListLayout")
+navLayout.Padding = UDim.new(0, 4)
+navLayout.SortOrder = Enum.SortOrder.LayoutOrder
+navLayout.Parent = nav
+
+-- User card
+local userCard = new("Frame", {
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, -14),
+	Size = UDim2.new(1, -24, 0, 60),
+	BackgroundColor3 = THEME.Surface,
+	BackgroundTransparency = 0.15,
+	BorderSizePixel = 0,
+	Parent = sidebar,
+})
+corner(userCard, 12)
+stroke(userCard, 0.8, 1)
+theme(userCard, "BackgroundColor3", "Surface")
+
+local avatar = new("ImageLabel", {
+	Position = UDim2.new(0, 10, 0.5, 0),
+	AnchorPoint = Vector2.new(0, 0.5),
+	Size = UDim2.new(0, 38, 0, 38),
+	BackgroundColor3 = THEME.SurfaceHi,
+	BorderSizePixel = 0,
+	Image = "rbxthumb://type=AvatarHeadShot&id=" .. LP.UserId .. "&w=150&h=150",
+	Parent = userCard,
+})
+corner(avatar, 999)
+stroke(avatar, 0.7, 1)
+
+tx(new("TextLabel", {
+	Position = UDim2.new(0, 56, 0, 12),
+	Size = UDim2.new(1, -64, 0, 16),
+	BackgroundTransparency = 1,
+	Text = LP.DisplayName,
+	TextColor3 = THEME.Text,
+	Font = Enum.Font.GothamBold,
+	TextSize = 12,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextTruncate = Enum.TextTruncate.AtEnd,
+	Parent = userCard,
+}))
+
+tx(new("TextLabel", {
+	Position = UDim2.new(0, 56, 0, 28),
+	Size = UDim2.new(1, -64, 0, 14),
+	BackgroundTransparency = 1,
+	Text = "@" .. LP.Name,
+	TextColor3 = THEME.TextMute,
+	Font = Enum.Font.Gotham,
+	TextSize = 10,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextTruncate = Enum.TextTruncate.AtEnd,
+	Parent = userCard,
+}))
+
+--=====================================================================
+--  TOPBAR
+--=====================================================================
+
+local topbar = new("Frame", {
+	Name = "Topbar",
+	Position = UDim2.new(0, 234, 0, 12),
+	Size = UDim2.new(1, -246, 0, 60),
+	BackgroundColor3 = THEME.Surface,
+	BackgroundTransparency = 0.2,
+	BorderSizePixel = 0,
+	Parent = window,
+})
+corner(topbar, 12)
+stroke(topbar, 0.8, 1)
+theme(topbar, "BackgroundColor3", "Surface")
+
+local pageTitle = tx(new("TextLabel", {
+	Position = UDim2.new(0, 20, 0, 10),
+	Size = UDim2.new(1, -90, 0, 20),
+	BackgroundTransparency = 1,
+	Text = "MAIN",
+	TextColor3 = THEME.Text,
+	Font = Enum.Font.GothamBlack,
+	TextSize = 15,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Parent = topbar,
+}))
+
+local pageSub = tx(new("TextLabel", {
+	Position = UDim2.new(0, 20, 0, 30),
+	Size = UDim2.new(1, -90, 0, 16),
+	BackgroundTransparency = 1,
+	Text = "Hub status and quick actions",
+	TextColor3 = THEME.TextMute,
+	Font = Enum.Font.Gotham,
+	TextSize = 10,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Parent = topbar,
+}))
+
+local miniBrand = new("Frame", {
+	Position = UDim2.new(0, 14, 0.5, 0),
+	AnchorPoint = Vector2.new(0, 0.5),
+	Size = UDim2.new(0, 240, 0, 34),
+	BackgroundTransparency = 1,
+	Visible = false,
+	Parent = topbar,
+})
+
+local miniMark = buildBrandMark(28, miniBrand)
+miniMark.Position = UDim2.new(0, 0, 0.5, 0)
+miniMark.AnchorPoint = Vector2.new(0, 0.5)
+
+tx(new("TextLabel", {
+	Position = UDim2.new(0, 38, 0, 0),
+	Size = UDim2.new(1, -38, 1, 0),
+	BackgroundTransparency = 1,
+	Text = "CLOAKED PLAGUE",
+	TextColor3 = THEME.Text,
+	Font = Enum.Font.GothamBlack,
+	TextSize = 12,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Parent = miniBrand,
+}))
+
+local controls = new("Frame", {
+	AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.new(1, -14, 0.5, 0),
+	Size = UDim2.new(0, 70, 0, 30),
+	BackgroundTransparency = 1,
+	Parent = topbar,
+})
+
+local ctrlLayout = Instance.new("UIListLayout")
+ctrlLayout.FillDirection = Enum.FillDirection.Horizontal
+ctrlLayout.Padding = UDim.new(0, 6)
+ctrlLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+ctrlLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+ctrlLayout.Parent = controls
+
+--=====================================================================
+--  PAGE CONTAINERS
+--=====================================================================
+
+local pageHolder = new("Frame", {
+	Position = UDim2.new(0, 234, 0, 84),
+	Size = UDim2.new(1, -246, 1, -96),
+	BackgroundTransparency = 1,
+	ClipsDescendants = true,
+	Parent = window,
+})
+
+local pages = {}
+
+for _, tab in ipairs(TABS) do
+	local p = new("ScrollingFrame", {
+		Name = tab.id,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = THEME.Content,
+		BackgroundTransparency = 0.15,
+		BorderSizePixel = 0,
+		Visible = false,
+		ScrollBarThickness = 4,
+		ScrollBarImageColor3 = Accent,
+		CanvasSize = UDim2.new(0, 0, 0, 0),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		Parent = pageHolder,
+	})
+	corner(p, 12)
+	stroke(p, 0.8, 1)
+	theme(p, "BackgroundColor3", "Content")
+
+	local layout = Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, 12)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = p
+
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0, 16)
+	pad.PaddingBottom = UDim.new(0, 16)
+	pad.PaddingLeft = UDim.new(0, 16)
+	pad.PaddingRight = UDim.new(0, 16)
+	pad.Parent = p
+
+	pages[tab.id] = p
+end
+
+local function pageCard(parent, height, order)
+	local card = new("Frame", {
+		Size = UDim2.new(1, 0, 0, height),
+		BackgroundColor3 = THEME.Surface,
+		BackgroundTransparency = 0.15,
+		BorderSizePixel = 0,
+		LayoutOrder = order or 1,
+		Parent = parent,
+	})
+	corner(card, 12)
+	stroke(card, 0.85, 1)
+	theme(card, "BackgroundColor3", "Surface")
+	return card
+end
+
+local function sectionLabel(parent, text, y)
+	return tx(new("TextLabel", {
+		Position = UDim2.new(0, 20, 0, y or 14),
+		Size = UDim2.new(1, -40, 0, 14),
+		BackgroundTransparency = 1,
+		Text = string.upper(text),
+		TextColor3 = THEME.TextDim,
+		Font = Enum.Font.GothamBold,
+		TextSize = 9,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = parent,
+	}))
+end
+
+--=====================================================================
+--  MAIN TAB  (was Overview)
+--=====================================================================
+
+do
+	local home = pages.main
+
+	-- Welcome card
+	local welcome = pageCard(home, 130, 1)
+	sectionLabel(welcome, "Welcome", 16)
+
+	tx(new("TextLabel", {
+		Position = UDim2.new(0, 20, 0, 38),
+		Size = UDim2.new(1, -40, 0, 26),
+		BackgroundTransparency = 1,
+		Text = "Welcome to CLOAKED PLAGUE",
+		TextColor3 = THEME.Text,
+		Font = Enum.Font.GothamBlack,
+		TextSize = 20,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = welcome,
+	}))
+
+	tx(new("TextLabel", {
+		Position = UDim2.new(0, 20, 0, 68),
+		Size = UDim2.new(1, -40, 0, 16),
+		BackgroundTransparency = 1,
+		Text = "All systems operational. Interface ready.",
+		TextColor3 = THEME.TextMute,
+		Font = Enum.Font.Gotham,
+		TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = welcome,
+	}))
+
+	local pill = new("Frame", {
+		Position = UDim2.new(0, 20, 1, -34),
+		Size = UDim2.new(0, 68, 0, 18),
+		BackgroundColor3 = Accent,
+		BackgroundTransparency = 0.85,
+		BorderSizePixel = 0,
+		Parent = welcome,
+	})
+	corner(pill, 999)
+
+	tx(new("TextLabel", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Text = "v1.0",
+		TextColor3 = Accent,
+		Font = Enum.Font.GothamBold,
+		TextSize = 10,
+		Parent = pill,
+	}))
+
+	-- Hub Status card
+	local status = pageCard(home, 190, 2)
+	sectionLabel(status, "Hub Status", 16)
+
+	local statusGrid = new("Frame", {
+		Position = UDim2.new(0, 16, 0, 44),
+		Size = UDim2.new(1, -32, 1, -58),
+		BackgroundTransparency = 1,
+		Parent = status,
+	})
+
+	local sLayout = Instance.new("UIGridLayout")
+	sLayout.CellSize = UDim2.new(0.5, -6, 0, 52)
+	sLayout.CellPadding = UDim2.new(0, 12, 0, 10)
+	sLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	sLayout.Parent = statusGrid
+
+	local function statusCell(order, label, value, dotColor)
+		local cell = new("Frame", {
+			BackgroundColor3 = THEME.SurfaceHi,
+			BackgroundTransparency = 0.35,
+			BorderSizePixel = 0,
+			LayoutOrder = order,
+			Parent = statusGrid,
+		})
+		corner(cell, 10)
+		theme(cell, "BackgroundColor3", "SurfaceHi")
+
+		local dot = new("Frame", {
+			Position = UDim2.new(0, 12, 0, 13),
+			Size = UDim2.new(0, 8, 0, 8),
+			BackgroundColor3 = dotColor,
+			BorderSizePixel = 0,
+			Parent = cell,
+		})
+		corner(dot, 999)
+
+		tx(new("TextLabel", {
+			Position = UDim2.new(0, 28, 0, 10),
+			Size = UDim2.new(1, -36, 0, 14),
+			BackgroundTransparency = 1,
+			Text = label,
+			TextColor3 = THEME.TextMute,
+			Font = Enum.Font.GothamBold,
+			TextSize = 9,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = cell,
+		}))
+
+		tx(new("TextLabel", {
+			Position = UDim2.new(0, 12, 0, 26),
+			Size = UDim2.new(1, -24, 0, 18),
+			BackgroundTransparency = 1,
+			Text = value,
+			TextColor3 = THEME.Text,
+			Font = Enum.Font.GothamBold,
+			TextSize = 13,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			Parent = cell,
+		}))
+	end
+
+	statusCell(1, "HUB STATUS", "Online", Success)
+	statusCell(2, "SERVER", "Connected", Success)
+	statusCell(3, "CURRENT USER", LP.DisplayName, AccentB)
+	statusCell(4, "ROLE", "User", Warn)
+
+	-- Quick Actions card
+	local actions = pageCard(home, 140, 3)
+	sectionLabel(actions, "Quick Actions", 16)
+
+	local actionRow = new("Frame", {
+		Position = UDim2.new(0, 16, 0, 44),
+		Size = UDim2.new(1, -32, 0, 62),
+		BackgroundTransparency = 1,
+		Parent = actions,
+	})
+
+	local al = Instance.new("UIListLayout")
+	al.FillDirection = Enum.FillDirection.Horizontal
+	al.Padding = UDim.new(0, 10)
+	al.SortOrder = Enum.SortOrder.LayoutOrder
+	al.Parent = actionRow
+
+	local function quickAction(order, text, tint)
+		local btn = new("TextButton", {
+			Size = UDim2.new(0.5, -5, 1, 0),
+			BackgroundColor3 = THEME.SurfaceHi,
+			BackgroundTransparency = 0.2,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "",
+			LayoutOrder = order,
+			Parent = actionRow,
+		})
+		corner(btn, 10)
+		stroke(btn, 0.85, 1)
+		theme(btn, "BackgroundColor3", "SurfaceHi")
+
+		local tile = new("Frame", {
+			Position = UDim2.new(0, 14, 0.5, 0),
+			AnchorPoint = Vector2.new(0, 0.5),
+			Size = UDim2.new(0, 24, 0, 24),
+			BackgroundColor3 = tint,
+			BackgroundTransparency = 0.85,
+			BorderSizePixel = 0,
+			Parent = btn,
+		})
+		corner(tile, 6)
+
+		local dot = new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, 0, 0.5, 0),
+			Size = UDim2.new(0, 8, 0, 8),
+			BackgroundColor3 = tint,
+			BorderSizePixel = 0,
+			Parent = tile,
+		})
+		corner(dot, 999)
+
+		tx(new("TextLabel", {
+			Position = UDim2.new(0, 46, 0, 0),
+			Size = UDim2.new(1, -54, 1, 0),
+			BackgroundTransparency = 1,
+			Text = text,
+			TextColor3 = THEME.Text,
+			Font = Enum.Font.GothamBold,
+			TextSize = 12,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = btn,
+		}))
+
+		btn.MouseEnter:Connect(function()
+			tween(btn, { BackgroundTransparency = 0.05 }, 0.15)
+		end)
+
+		btn.MouseLeave:Connect(function()
+			tween(btn, { BackgroundTransparency = 0.2 }, 0.15)
+		end)
+
+		btn.MouseButton1Click:Connect(function()
+			flashUnavailable(btn)
+		end)
+	end
+
+	quickAction(1, "Rejoin Server", AccentB)
+	quickAction(2, "Server Hop", Accent)
+
+	-- Session card
+	local session = pageCard(home, 110, 4)
+	sectionLabel(session, "Session", 16)
+
+	tx(new("TextLabel", {
+		Position = UDim2.new(0, 20, 0, 38),
+		Size = UDim2.new(1, -40, 0, 18),
+		BackgroundTransparency = 1,
+		Text = "Interface initialized and ready for use.",
+		TextColor3 = THEME.TextDim,
+		Font = Enum.Font.Gotham,
+		TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = session,
+	}))
+
+	tx(new("TextLabel", {
+		Position = UDim2.new(0, 20, 0, 62),
+		Size = UDim2.new(1, -40, 0, 16),
+		BackgroundTransparency = 1,
+		Text = "Build v1.0  •  Client-side only",
+		TextColor3 = THEME.TextMute,
+		Font = Enum.Font.Gotham,
+		TextSize = 10,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = session,
+	}))
+end
+
+--=====================================================================
+--  GRIEF TAB  (was Modules)
+--=====================================================================
+
+local function moduleRow(parent, opts)
+	local row = new("Frame", {
+		Size = UDim2.new(1, 0, 0, 56),
+		BackgroundTransparency = 1,
+		Parent = parent,
+	})
+
+	local tint = opts.color or Accent
+
+	local tile = new("Frame", {
+		Position = UDim2.new(0, 4, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Size = UDim2.new(0, 36, 0, 36),
+		BackgroundColor3 = tint,
+		BackgroundTransparency = 0.85,
+		BorderSizePixel = 0,
+		Parent = row,
+	})
+	corner(tile, 10)
+
+	local dot = new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+		Size = UDim2.new(0, 10, 0, 10),
+		BackgroundColor3 = tint,
+		BorderSizePixel = 0,
+		Parent = tile,
+	})
+	corner(dot, 999)
+
+	tx(new("TextLabel", {
+		Position = UDim2.new(0, 54, 0, 8),
+		Size = UDim2.new(1, -160, 0, 18),
+		BackgroundTransparency = 1,
+		Text = opts.name,
+		TextColor3 = THEME.Text,
+		Font = Enum.Font.GothamBold,
+		TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Parent = row,
+	}))
+
+	tx(new("TextLabel", {
+		Position = UDim2.new(0, 54, 0, 28),
+		Size = UDim2.new(1, -160, 0, 16),
+		BackgroundTransparency = 1,
+		Text = opts.desc,
+		TextColor3 = THEME.TextMute,
+		Font = Enum.Font.Gotham,
+		TextSize = 10,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Parent = row,
+	}))
+
+	if opts.kind == "toggle" then
+		local holder = new("Frame", {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -12, 0.5, 0),
+			Size = UDim2.new(0, 38, 0, 22),
+			BackgroundTransparency = 1,
+			Parent = row,
+		})
+		makeToggle(holder, false, nil)
+
+	elseif opts.kind == "button" then
+		local btn = new("TextButton", {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -12, 0.5, 0),
+			Size = UDim2.new(0, 74, 0, 28),
+			BackgroundColor3 = THEME.SurfaceHi,
+			BackgroundTransparency = 0.2,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "",
+			Parent = row,
+		})
+		corner(btn, 8)
+		stroke(btn, 0.85, 1)
+		theme(btn, "BackgroundColor3", "SurfaceHi")
+
+		tx(new("TextLabel", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Text = opts.buttonText or "Run",
+			TextColor3 = THEME.Text,
+			Font = Enum.Font.GothamBold,
+			TextSize = 11,
+			Parent = btn,
+		}))
+
+		btn.MouseEnter:Connect(function()
+			tween(btn, {
+				BackgroundColor3 = Accent,
+				BackgroundTransparency = 0,
+			}, 0.14)
+		end)
+
+		btn.MouseLeave:Connect(function()
+			tween(btn, {
+				BackgroundColor3 = THEME.SurfaceHi,
+				BackgroundTransparency = 0.2,
+			}, 0.14)
+		end)
+
+		btn.MouseButton1Click:Connect(function()
+			flashUnavailable(btn)
+		end)
+	end
+
+	return row
+end
+
+local function categoryCard(parent, title, order, rowCount)
+	local h = 40 + rowCount * 62 + 8
+	local card = pageCard(parent, h, order)
+	sectionLabel(card, title, 14)
+
+	local body = new("Frame", {
+		Position = UDim2.new(0, 12, 0, 40),
+		Size = UDim2.new(1, -24, 0, rowCount * 62),
+		BackgroundTransparency = 1,
+		Parent = card,
+	})
+
+	local bl = Instance.new("UIListLayout")
+	bl.Padding = UDim.new(0, 6)
+	bl.SortOrder = Enum.SortOrder.LayoutOrder
+	bl.Parent = body
+
+	return card, body
+end
+
+do
+	local mods = pages.grief
+	local card, body, rows
+
+	-- Movement
+	card, body = categoryCard(mods, "Movement", 1, 4)
+	rows = {
+		{ name = "Fly",           desc = "Free flight movement", color = Success, kind = "toggle" },
+		{ name = "Noclip",        desc = "Pass through objects", color = Success, kind = "toggle" },
+		{ name = "WalkSpeed",     desc = "Adjust walking speed", color = Success, kind = "toggle" },
+		{ name = "Infinite Jump", desc = "Unlimited jumping",    color = Success, kind = "toggle" },
+	}
+	for _, r in ipairs(rows) do
+		moduleRow(body, r)
+	end
+
+	-- Player Effects
+	card, body = categoryCard(mods, "Player Effects", 2, 3)
+	rows = {
+		{ name = "Dance",      desc = "Loop dance animation", color = Warn, kind = "toggle" },
+		{ name = "Fling",      desc = "Single fling action",  color = Warn, kind = "button", buttonText = "Run" },
+		{ name = "Auto Fling", desc = "Continuously fling",   color = Warn, kind = "toggle" },
+	}
+	for _, r in ipairs(rows) do
+		moduleRow(body, r)
+	end
+
+	-- Messages
+	card, body = categoryCard(mods, "Messages", 3, 2)
+	rows = {
+		{ name = "Welcome Message", desc = "Send welcome on join",  color = AccentB, kind = "toggle" },
+		{ name = "Spam Message",    desc = "Repeat a chat message", color = AccentB, kind = "toggle" },
+	}
+	for _, r in ipairs(rows) do
+		moduleRow(body, r)
+	end
+
+	-- Game Actions
+	card, body = categoryCard(mods, "Game Actions", 4, 3)
+	rows = {
+		{ name = "Grief",       desc = "Game-action placeholder", color = Danger, kind = "button", buttonText = "Run" },
+		{ name = "Delete All",  desc = "Mass-clear placeholder",  color = Danger, kind = "button", buttonText = "Run" },
+		{ name = "Delete Aura", desc = "Auto-clear placeholder",  color = Danger, kind = "button", buttonText = "Run" },
+	}
+	for _, r in ipairs(rows) do
+		moduleRow(body, r)
+	end
+
+	-- Protection
+	card, body = categoryCard(mods, "Protection", 5, 1)
+	moduleRow(body, {
+		name = "Anti-Grief",
+		desc = "Requires server-side validation",
+		color = Accent,
+		kind = "toggle",
+	})
+
+	-- Quiz card
+	local quiz = pageCard(mods, 400, 6)
+	sectionLabel(quiz, "Quiz", 14)
+
+	local quizFrame = new("Frame", {
+		Position = UDim2.new(0, 4, 0, 44),
+		Size = UDim2.new(1, -8, 1, -52),
+		BackgroundTransparency = 1,
+		Parent = quiz,
+	})
+
+	local questions = {
+		{ q = "What is the accent color of Cloaked Plague?", opts = {"Purple", "Green", "Red", "Blue"}, correct = 1 },
+		{ q = "Which key toggles the interface?",             opts = {"K", "J", "L", "M"}, correct = 1 },
+		{ q = "How do you minimize the window?",              opts = {"Click the dash", "Press ESC", "Close it", "Right-click"}, correct = 1 },
+		{ q = "Where do you find the script library?",        opts = {"Scripts tab", "Main", "Settings", "Grief"}, correct = 1 },
+	}
+
+	local qIdx = 1
+	local qScore = 0
+	local inQuiz = false
+
+	local startView = new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Parent = quizFrame,
+	})
+
+	tx(new("TextLabel", {
+		Position = UDim2.new(0, 12, 0, 30),
+		Size = UDim2.new(1, -24, 0, 22),
+		BackgroundTransparency = 1,
+		Text = "Test your knowledge of the interface.",
+		TextColor3 = THEME.TextDim,
+		Font = Enum.Font.Gotham,
+		TextSize = 12,
+		Parent = startView,
+	}))
+
+	local startBtn = new("TextButton", {
+		Position = UDim2.new(0, 12, 0, 70),
+		Size = UDim2.new(0, 140, 0, 38),
+		BackgroundColor3 = Accent,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		Parent = startView,
+	})
+	corner(startBtn, 10)
+
+	tx(new("TextLabel", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Text = "START QUIZ",
+		TextColor3 = White,
+		Font = Enum.Font.GothamBold,
+		TextSize = 12,
+		Parent = startBtn,
+	}))
+
+	local quizView = new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = quizFrame,
+	})
+
+	local scoreLbl = tx(new("TextLabel", {
+		Position = UDim2.new(0, 12, 0, 8),
+		Size = UDim2.new(1, -24, 0, 16),
+		BackgroundTransparency = 1,
+		Text = "Score: 0",
+		TextColor3 = THEME.TextDim,
+		Font = Enum.Font.GothamBold,
+		TextSize = 10,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = quizView,
+	}))
+
+	local qLbl = tx(new("TextLabel", {
+		Position = UDim2.new(0, 12, 0, 30),
+		Size = UDim2.new(1, -24, 0, 40),
+		BackgroundTransparency = 1,
+		Text = "",
+		TextColor3 = THEME.Text,
+		Font = Enum.Font.GothamBlack,
+		TextSize = 14,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextWrapped = true,
+		Parent = quizView,
+	}))
+
+	local answerHolder = new("Frame", {
+		Position = UDim2.new(0, 12, 0, 82),
+		Size = UDim2.new(1, -24, 1, -90),
+		BackgroundTransparency = 1,
+		Parent = quizView,
+	})
+
+	local aLayout = Instance.new("UIListLayout")
+	aLayout.Padding = UDim.new(0, 8)
+	aLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	aLayout.Parent = answerHolder
+
+	local answerButtons = {}
+
+	for i = 1, 4 do
+		local b = new("TextButton", {
+			Size = UDim2.new(1, 0, 0, 42),
+			BackgroundColor3 = THEME.SurfaceHi,
+			BackgroundTransparency = 0.2,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "",
+			LayoutOrder = i,
+			Parent = answerHolder,
+		})
+		corner(b, 8)
+		stroke(b, 0.85, 1)
+		theme(b, "BackgroundColor3", "SurfaceHi")
+
+		local l = tx(new("TextLabel", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Text = "",
+			TextColor3 = THEME.Text,
+			Font = Enum.Font.GothamBold,
+			TextSize = 12,
+			Parent = b,
+		}))
+
+		answerButtons[i] = { btn = b, lbl = l }
+	end
+
+	local resultView = new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = quizFrame,
+	})
+
+	tx(new("TextLabel", {
+		Position = UDim2.new(0, 12, 0, 40),
+		Size = UDim2.new(1, -24, 0, 26),
+		BackgroundTransparency = 1,
+		Text = "Quiz Complete!",
+		TextColor3 = THEME.Text,
+		Font = Enum.Font.GothamBlack,
+		TextSize = 18,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = resultView,
+	}))
+
+	local resultScore = tx(new("TextLabel", {
+		Position = UDim2.new(0, 12, 0, 76),
+		Size = UDim2.new(1, -24, 0, 20),
+		BackgroundTransparency = 1,
+		Text = "You scored 0/0",
+		TextColor3 = THEME.TextDim,
+		Font = Enum.Font.Gotham,
+		TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = resultView,
+	}))
+
+	local retryBtn = new("TextButton", {
+		Position = UDim2.new(0, 12, 0, 116),
+		Size = UDim2.new(0, 140, 0, 38),
+		BackgroundColor3 = Accent,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		Parent = resultView,
+	})
+	corner(retryBtn, 10)
+
+	tx(new("TextLabel", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Text = "PLAY AGAIN",
+		TextColor3 = White,
+		Font = Enum.Font.GothamBold,
+		TextSize = 12,
+		Parent = retryBtn,
+	}))
+
+	local function loadQuestion()
+		local q = questions[qIdx]
+		qLbl.Text = string.format("Q%d/%d  %s", qIdx, #questions, q.q)
+		scoreLbl.Text = "Score: " .. qScore
+
+		for i, entry in ipairs(answerButtons) do
+			entry.lbl.Text = q.opts[i] or ""
+			entry.btn.BackgroundColor3 = THEME.SurfaceHi
+			entry.btn.BackgroundTransparency = 0.2
+		end
+	end
+
+	local function answer(i)
+		if not inQuiz then
+			return
+		end
+
+		local q = questions[qIdx]
+		local entry = answerButtons[i]
+
+		if i == q.correct then
+			qScore = qScore + 1
+			entry.btn.BackgroundColor3 = Success
+			entry.btn.BackgroundTransparency = 0
+		else
+			entry.btn.BackgroundColor3 = Danger
+			entry.btn.BackgroundTransparency = 0
+
+			local ce = answerButtons[q.correct]
+			ce.btn.BackgroundColor3 = Success
+			ce.btn.BackgroundTransparency = 0
+		end
+
+		scoreLbl.Text = "Score: " .. qScore
+		inQuiz = false
+
+		task.delay(0.65, function()
+			if qIdx >= #questions then
+				quizView.Visible = false
+				resultView.Visible = true
+				resultScore.Text = string.format("You scored %d/%d", qScore, #questions)
+			else
+				qIdx = qIdx + 1
+				inQuiz = true
+				loadQuestion()
+			end
+		end)
+	end
+
+	for i, entry in ipairs(answerButtons) do
+		entry.btn.MouseButton1Click:Connect(function()
+			answer(i)
+		end)
+	end
+
+	startBtn.MouseButton1Click:Connect(function()
+		qIdx = 1
+		qScore = 0
+		inQuiz = true
+		startView.Visible = false
+		resultView.Visible = false
+		quizView.Visible = true
+		loadQuestion()
+	end)
+
+	retryBtn.MouseButton1Click:Connect(function()
+		qIdx = 1
+		qScore = 0
+		inQuiz = true
+		resultView.Visible = false
+		quizView.Visible = true
+		loadQuestion()
+	end)
+end
+
+--=====================================================================
+--  UTILITIES TAB  (was Scripts)
+--=====================================================================
+
+do
+	local sp = pages.utilities
+
+	-- Search card
+	local searchCard = pageCard(sp, 60, 1)
+
+	local searchBar = new("Frame", {
+		Position = UDim2.new(0, 16, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Size = UDim2.new(1, -32, 0, 36),
+		BackgroundColor3 = THEME.SurfaceHi,
+		BackgroundTransparency = 0.35,
+		BorderSizePixel = 0,
+		Parent = searchCard,
+	})
+	corner(searchBar, 10)
+	stroke(searchBar, 0.85, 1)
+	theme(searchBar, "BackgroundColor3", "SurfaceHi")
+
+	local searchInput = new("TextBox", {
+		Position = UDim2.new(0, 14, 0, 0),
+		Size = UDim2.new(1, -20, 1, 0),
+		BackgroundTransparency = 1,
+		Text = "",
+		PlaceholderText = "Search scripts...",
+		PlaceholderColor3 = THEME.TextMute,
+		TextColor3 = THEME.Text,
+		Font = Enum.Font.Gotham,
+		TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ClearTextOnFocus = false,
+		Parent = searchBar,
+	})
+	table.insert(textRegistry, { label = searchInput, base = 12 })
+
+	-- Categories card
+	local catCard = pageCard(sp, 60, 2)
+	sectionLabel(catCard, "Categories", 12)
+
+	local catRow = new("Frame", {
+		Position = UDim2.new(0, 16, 0, 30),
+		Size = UDim2.new(1, -32, 0, 22),
+		BackgroundTransparency = 1,
+		Parent = catCard,
+	})
+
+	local crl = Instance.new("UIListLayout")
+	crl.FillDirection = Enum.FillDirection.Horizontal
+	crl.Padding = UDim.new(0, 6)
+	crl.SortOrder = Enum.SortOrder.LayoutOrder
+	crl.Parent = catRow
+
+	local catNames = { "All", "Movement", "UI", "Utilities", "Fun" }
+	local activeCat = 1
+	local catButtons = {}
+
+	local function refreshCats()
+		for i, b in ipairs(catButtons) do
+			local active = i == activeCat
+
+			tween(b, {
+				BackgroundColor3 = active and Accent or THEME.SurfaceHi,
+				BackgroundTransparency = active and 0 or 0.35,
+			}, 0.14)
+
+			local l = b:FindFirstChild("L")
+			if l then
+				tween(l, {
+					TextColor3 = active and White or THEME.TextDim,
+				}, 0.14)
+			end
+		end
+	end
+
+	for i, name in ipairs(catNames) do
+		local b = new("TextButton", {
+			Size = UDim2.new(0, 82, 1, 0),
+			BackgroundColor3 = THEME.SurfaceHi,
+			BackgroundTransparency = 0.35,
+			BorderSizePixel = 0,
+			AutoButtonColor = false,
+			Text = "",
+			LayoutOrder = i,
+			Parent = catRow,
+		})
+		corner(b, 6)
+		stroke(b, 0.88, 1)
+
+		tx(new("TextLabel", {
+			Name = "L",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Text = name,
+			TextColor3 = THEME.TextDim,
+			Font = Enum.Font.GothamBold,
+			TextSize = 10,
+			Parent = b,
+		}))
+
+		b.MouseButton1Click:Connect(function()
+			activeCat = i
+			refreshCats()
+		end)
+
+		catButtons[i] = b
+	end
+
+	refreshCats()
+
+	-- Empty state
+	local emptyCard = pageCard(sp, 260, 3)
+
+	local emptyIcon = new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 34),
+		Size = UDim2.new(0, 68, 0, 68),
+		BackgroundColor3 = THEME.SurfaceHi,
+		BackgroundTransparency = 0.3,
+		BorderSizePixel = 0,
+		Parent = emptyCard,
+	})
+	corner(emptyIcon, 999)
+	stroke(emptyIcon, 0.7, 2)
+	theme(emptyIcon, "BackgroundColor3", "SurfaceHi")
+
+	local ic = new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+		Size = UDim2.new(0, 20, 0, 20),
+		BackgroundColor3 = THEME.TextMute,
+		BorderSizePixel = 0,
+		Parent = emptyIcon,
+	})
+	corner(ic, 4)
+
+	tx(new("TextLabel", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 118),
+		Size = UDim2.new(1, -40, 0, 22),
+		BackgroundTransparency = 1,
+		Text = "No scripts yet",
+		TextColor3 = THEME.Text,
+		Font = Enum.Font.GothamBlack,
+		TextSize = 16,
+		Parent = emptyCard,
+	}))
+
+	tx(new("TextLabel", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 146),
+		Size = UDim2.new(1, -40, 0, 40),
+		BackgroundTransparency = 1,
+		Text = "Scripts you add will appear here.\nUse the search bar to filter by name.",
+		TextColor3 = THEME.TextMute,
+		Font = Enum.Font.Gotham,
+		TextSize = 11,
+		TextWrapped = true,
+		Parent = emptyCard,
+	}))
+
+	-- Favorites card
+	local favCard = pageCard(sp, 100, 4)
+	sectionLabel(favCard, "Favorites", 16)
+
+	tx(new("TextLabel", {
+		Position = UDim2.new(0, 20, 0, 38),
+		Size = UDim2.new(1, -40, 0, 18),
+		BackgroundTransparency = 1,
+		Text = "No favorites saved yet.",
+		TextColor3 = THEME.TextMute,
+		Font = Enum.Font.Gotham,
+		TextSize = 11,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = favCard,
+	}))
+end
+
+--=====================================================================
+--  SETTINGS TAB
+--=====================================================================
+
+do
+	local s = pages.settings
+
+	local function settingRow(parent, yPos, title, desc, buildControl)
+		local row = new("Frame", {
+			Position = UDim2.new(0, 16, 0, yPos),
+			Size = UDim2.new(1, -32, 0, 62),
+			BackgroundColor3 = THEME.SurfaceHi,
+			BackgroundTransparency = 0.5,
+			BorderSizePixel = 0,
+			Parent = parent,
+		})
+		corner(row, 10)
+		theme(row, "BackgroundColor3", "SurfaceHi")
+
+		tx(new("TextLabel", {
+			Position = UDim2.new(0, 14, 0, 10),
+			Size = UDim2.new(1, -110, 0, 18),
+			BackgroundTransparency = 1,
+			Text = title,
+			TextColor3 = THEME.Text,
+			Font = Enum.Font.GothamBold,
+			TextSize = 12,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = row,
+		}))
+
+		tx(new("TextLabel", {
+			Position = UDim2.new(0, 14, 0, 30),
+			Size = UDim2.new(1, -110, 0, 16),
+			BackgroundTransparency = 1,
+			Text = desc,
+			TextColor3 = THEME.TextMute,
+			Font = Enum.Font.Gotham,
+			TextSize = 10,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = row,
+		}))
+
+		local holder = new("Frame", {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -14, 0.5, 0),
+			Size = UDim2.new(0, 38, 0, 22),
+			BackgroundTransparency = 1,
+			Parent = row,
+		})
+
+		buildControl(holder)
+	end
+
+	-- Appearance
+	local appear = pageCard(s, 200, 1)
+	sectionLabel(appear, "Appearance", 16)
+
+	settingRow(appear, 44, "Round Corners", "Rounded or sharp panel edges", function(h)
+		h.Size = UDim2.new(0, 38, 0, 22)
+		makeToggle(h, true, function(on)
+			applyRoundCorners(on)
+		end)
+	end)
+
+	settingRow(appear, 112, "Dark Mode", "Toggle between light and dark themes", function(h)
+		h.Size = UDim2.new(0, 38, 0, 22)
+		makeToggle(h, false, function(on)
+			applyTheme(on and DARK or LIGHT)
+		end)
+	end)
+
+	-- UI Size
+	local uiCard = pageCard(s, 130, 2)
+	sectionLabel(uiCard, "UI Size", 16)
+
+	local uiHolder = new("Frame", {
+		Position = UDim2.new(0, 16, 0, 46),
+		Size = UDim2.new(1, -32, 0, 32),
+		BackgroundTransparency = 1,
+		Parent = uiCard,
+	})
+
+	makeSegmented(uiHolder, { "Small", "Medium", "Large" }, 2, function(idx)
+		local scales = { 0.85, 1.0, 1.15 }
+		tween(uiScale, { Scale = scales[idx] }, 0.25)
+	end)
+
+	-- Text Size
+	local textCard = pageCard(s, 130, 3)
+	sectionLabel(textCard, "Text Size", 16)
+
+	local textHolder = new("Frame", {
+		Position = UDim2.new(0, 16, 0, 46),
+		Size = UDim2.new(1, -32, 0, 32),
+		BackgroundTransparency = 1,
+		Parent = textCard,
+	})
+
+	makeSegmented(textHolder, { "Small", "Medium", "Large" }, 2, function(idx)
+		local scales = { 0.88, 1.0, 1.15 }
+		applyTextScale(scales[idx])
+	end)
+
+	-- About
+	local about = pageCard(s, 110, 4)
+	sectionLabel(about, "About", 16)
+
+	tx(new("TextLabel", {
+		Position = UDim2.new(0, 20, 0, 40),
+		Size = UDim2.new(1, -40, 0, 20),
+		BackgroundTransparency = 1,
+		Text = "CLOAKED PLAGUE — Operator Interface",
+		TextColor3 = THEME.Text,
+		Font = Enum.Font.GothamBold,
+		TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = about,
+	}))
+
+	tx(new("TextLabel", {
+		Position = UDim2.new(0, 20, 0, 62),
+		Size = UDim2.new(1, -40, 0, 16),
+		BackgroundTransparency = 1,
+		Text = "Interface build v1.0  •  Client-side UI only",
+		TextColor3 = THEME.TextMute,
+		Font = Enum.Font.Gotham,
+		TextSize = 10,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = about,
+	}))
+end
+
+--=====================================================================
+--  NAV BUTTONS
+--=====================================================================
+
+local navButtons = {}
+local navIcons   = {}
+local navScales  = {}
+local currentPage = nil
+
+local function setIconColor(id, col, dur, stagger)
+	local parts = navIcons[id]
+	if not parts then
+		return
+	end
+
+	for i, item in ipairs(parts) do
+		if typeof(item) == "Instance" then
+			local function apply()
+				if item.Parent then
+					tween(item, { BackgroundColor3 = col }, dur or 0.2)
+				end
+			end
+
+			if stagger then
+				task.delay((i - 1) * 0.03, apply)
+			else
+				apply()
+			end
+		end
+	end
+end
+
+local function showPage(id)
+	if currentPage == id then
+		return
+	end
+	currentPage = id
+
+	for tid, btn in pairs(navButtons) do
+		local active = (tid == id)
+		local bar = btn:FindFirstChild("Bar")
+		local lbl = btn:FindFirstChild("Lbl")
+
+		tween(btn, {
+			BackgroundColor3 = active and THEME.SurfaceHi or THEME.Surface,
+			BackgroundTransparency = active and 0.05 or 0.5,
+		}, 0.22)
+
+		if bar then
+			tween(bar, {
+				Size = UDim2.new(0, 3, active and 1 or 0.25, 0),
+			}, 0.26)
+		end
+
+		if lbl then
+			tween(lbl, {
+				TextColor3 = active and THEME.Text or THEME.TextDim,
+			}, 0.22)
+		end
+
+		setIconColor(tid, active and Accent or THEME.TextMute, 0.24, active)
+	end
+
+	for _, tab in ipairs(TABS) do
+		if tab.id == id then
+			pageTitle.Text = string.upper(tab.label)
+			pageSub.Text = SUBTITLES[id] or ""
+			break
+		end
+	end
+
+	for pid, p in pairs(pages) do
+		if pid == id then
+			p.Visible = true
+			p.Position = UDim2.new(0, 18, 0, 0)
+			p.BackgroundTransparency = 1
+
+			tween(p, {
+				Position = UDim2.new(0, 0, 0, 0),
+			}, 0.42, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+
+			tween(p, {
+				BackgroundTransparency = 0.15,
+			}, 0.32)
+		else
+			p.Visible = false
+		end
+	end
+end
+
+for i, tab in ipairs(TABS) do
+	local btn = new("TextButton", {
+		Name = "Nav_" .. tab.id,
+		Size = UDim2.new(1, 0, 0, 42),
+		BackgroundColor3 = THEME.Surface,
+		BackgroundTransparency = 0.5,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = "",
+		LayoutOrder = i,
+		Parent = nav,
+	})
+	corner(btn, 10)
+	stroke(btn, 0.85, 1)
+	theme(btn, "BackgroundColor3", "Surface")
+
+	local bs = Instance.new("UIScale")
+	bs.Scale = 1
+	bs.Parent = btn
+	navScales[tab.id] = bs
+
+	local bar = new("Frame", {
+		Name = "Bar",
+		Position = UDim2.new(0, 0, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Size = UDim2.new(0, 3, 0.25, 0),
+		BackgroundColor3 = Accent,
+		BorderSizePixel = 0,
+		Parent = btn,
+	})
+	corner(bar, 999)
+
+	local _, parts = makeNavIcon(tab.icon, THEME.TextMute, btn)
+	navIcons[tab.id] = parts
+
+	local lbl = tx(new("TextLabel", {
+		Name = "Lbl",
+		Position = UDim2.new(0, 50, 0, 0),
+		Size = UDim2.new(1, -60, 1, 0),
+		BackgroundTransparency = 1,
+		Text = tab.label,
+		TextColor3 = THEME.TextDim,
+		Font = Enum.Font.GothamBold,
+		TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = btn,
+	}))
+
+	btn.MouseEnter:Connect(function()
+		if currentPage ~= tab.id then
+			tween(btn, { BackgroundTransparency = 0.3 }, 0.16)
+			setIconColor(tab.id, THEME.TextDim, 0.18, true)
+		end
+	end)
+
+	btn.MouseLeave:Connect(function()
+		if currentPage ~= tab.id then
+			tween(btn, { BackgroundTransparency = 0.5 }, 0.16)
+			setIconColor(tab.id, THEME.TextMute, 0.18, false)
+		end
+	end)
+
+	btn.MouseButton1Click:Connect(function()
+		local sc = navScales[tab.id]
+
+		if sc then
+			tween(sc, { Scale = 0.96 }, 0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+			task.delay(0.09, function()
+				if sc and sc.Parent then
+					tween(sc, { Scale = 1 }, 0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+				end
+			end)
+		end
+
+		showPage(tab.id)
+	end)
+
+	navButtons[tab.id] = btn
+end
+
+--=====================================================================
+--  VISIBILITY
+--=====================================================================
+
+local isVisible = true
+local isMinimized = false
+local restorePos = UDim2.fromScale(0.5, 0.5)
+local minBtn
+local minBtnAPI
+local closeBtn
+
+function setVisible(state)
+	if isVisible == state then
+		return
+	end
+	isVisible = state
+
+	if state then
+		window.Visible = true
+		shadow.Visible = true
+
+		window.Size = UDim2.new(0, 900, 0, 560)
+		window.BackgroundTransparency = 1
+		shadow.Size = UDim2.new(0, 930, 0, 590)
+		shadow.BackgroundTransparency = 1
+
+		tween(window, {
+			Size = UDim2.new(0, 1000, 0, 620),
+			BackgroundTransparency = 0.12,
+		}, 0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+		tween(shadow, {
+			Size = UDim2.new(0, 1030, 0, 650),
+			BackgroundTransparency = 0.86,
+		}, 0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	else
+		tween(window, {
+			Size = UDim2.new(0, 900, 0, 560),
+			BackgroundTransparency = 1,
+		}, 0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+
+		local t = tween(shadow, {
+			Size = UDim2.new(0, 930, 0, 590),
+			BackgroundTransparency = 1,
+		}, 0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+
+		t.Completed:Connect(function()
+			if not isVisible then
+				window.Visible = false
+				shadow.Visible = false
+			end
+		end)
+	end
+end
+
+--=====================================================================
+--  MINIMIZE
+--=====================================================================
+
+local function setMinimized(state)
+	if isMinimized == state then
+		return
+	end
+	isMinimized = state
+
+	if state then
+		restorePos = window.Position
+
+		tween(sidebar, { GroupTransparency = 1 }, 0.28)
+
+		task.delay(0.3, function()
+			if isMinimized then
+				sidebar.Visible = false
+			end
+		end)
+
+		pageHolder.Visible = false
+		pageTitle.Visible = false
+		pageSub.Visible = false
+		miniBrand.Visible = true
+
+		tween(topbar, {
+			Position = UDim2.new(0, 0, 0, 0),
+			Size = UDim2.new(1, 0, 1, 0),
+			BackgroundTransparency = 1,
+		}, 0.42, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
+
+		local target = UDim2.new(0.5, 0, 0, 88)
+
+		tween(window, {
+			Size = UDim2.new(0, 340, 0, 56),
+			Position = target,
+		}, 0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+		tween(shadow, {
+			Size = UDim2.new(0, 370, 0, 86),
+			Position = target,
+		}, 0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+		if minBtnAPI then
+			minBtnAPI.setState("restore")
+		end
+	else
+		sidebar.Visible = true
+		sidebar.GroupTransparency = 1
+		tween(sidebar, { GroupTransparency = 0 }, 0.34)
+
+		pageTitle.Visible = true
+		pageSub.Visible = true
+		miniBrand.Visible = false
+
+		tween(topbar, {
+			Position = UDim2.new(0, 234, 0, 12),
+			Size = UDim2.new(1, -246, 0, 60),
+			BackgroundTransparency = 0.2,
+		}, 0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+		tween(window, {
+			Size = UDim2.new(0, 1000, 0, 620),
+			Position = restorePos,
+		}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+		tween(shadow, {
+			Size = UDim2.new(0, 1030, 0, 650),
+			Position = restorePos,
+		}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+		task.delay(0.22, function()
+			if not isMinimized then
+				pageHolder.Visible = true
+			end
+		end)
+
+		if minBtnAPI then
+			minBtnAPI.setState("min")
+		end
+	end
+end
+
+--=====================================================================
+--  INSTANTIATE CONTROL BUTTONS
+--=====================================================================
+
+minBtn, minBtnAPI = makeControlButton("min", controls, function()
+	setMinimized(not isMinimized)
+end)
+
+closeBtn = makeControlButton("close", controls, function()
+	setVisible(false)
+end)
+
+--=====================================================================
+--  DRAG
+--=====================================================================
+
+do
+	local dragging = false
+	local dragStart = nil
+	local startPos = nil
+	local dragInput = nil
+	local endConn = nil
+
+	local function stopDrag()
+		dragging = false
+		if endConn then
+			endConn:Disconnect()
+			endConn = nil
+		end
+	end
+
+	topbar.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = window.Position
+
+			if endConn then
+				endConn:Disconnect()
+			end
+
+			endConn = input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					stopDrag()
+				end
+			end)
+		end
+	end)
+
+	topbar.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch then
+			dragInput = input
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if not dragging or input ~= dragInput then
+			return
+		end
+
+		local delta = input.Position - dragStart
+
+		local newPos = UDim2.new(
+			startPos.X.Scale, startPos.X.Offset + delta.X,
+			startPos.Y.Scale, startPos.Y.Offset + delta.Y
+		)
+
+		window.Position = newPos
+		shadow.Position = newPos
+		restorePos = newPos
+	end)
+end
+
+--=====================================================================
+--  TOGGLE KEY
+--=====================================================================
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+	if gpe then
+		return
+	end
+
+	if input.KeyCode == TOGGLE_KEY then
+		setVisible(not isVisible)
+	end
+end)
+
+--=====================================================================
+--  RESPONSIVE SCALE
+--=====================================================================
+
+local function updateScale()
+	local cam = workspace.CurrentCamera
+	if not cam then
+		return
+	end
+
+	local vp = cam.ViewportSize
+	local s = math.clamp(math.min(vp.X / 1280, vp.Y / 720), 0.6, 1.15)
+	uiScale.Scale = s
+end
+
+if workspace.CurrentCamera then
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
+end
+
+updateScale()
+
+--=====================================================================
+--  BOOT
+--=====================================================================
+
+showPage("main")
+print("[Cloaked Plague] loaded • 4 tabs: Main, Grief, Utilities, Settings")
